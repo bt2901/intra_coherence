@@ -47,12 +47,6 @@ coh_names_top_tokens = ['newman', 'mimno']
 coh_funcs = [coh_newman, coh_mimno]
 
 
-#coh_names = ['newman', 'mimno', 'cosine', 'semantic', 'toplen']
-#coh_names_top_tokens = ['newman', 'mimno', 'cosine']
-#coh_funcs = [coh_newman, coh_mimno, coh_cosine, coh_semantic, coh_toplen]
-#coh_funcs = [coh_newman, coh_mimno]
-
-
 window = 10
 threshold = 0.02
 cosine_num_top_tokens = 10
@@ -118,7 +112,6 @@ def create_coherences_framework(coh_names):
         for mode in ['mean-of-means', 'mean-of-medians', 'median-of-means', 'median-of-medians']:
             coherences_carcass[cn][mode] = np.array([])
     return coherences_carcass
-
     
 def measures_append(arr, index, coh_name, where, what):
     arr[index][coh_name][where] = (np.append(arr[index][coh_name][where], what))
@@ -130,10 +123,6 @@ def append_all_measures(coherences_tmp, window, threshold, coh_name, coh_list):
     measures_append(coherences_tmp, index, coh_name, 'mean-of-medians', np.mean(coh_list['medians']))
     measures_append(coherences_tmp, index, coh_name, 'median-of-means', np.median(coh_list['means']))
     measures_append(coherences_tmp, index, coh_name, 'median-of-medians', np.median(coh_list['medians']))
-
-
-
-
 
 t0 = time.time()
 
@@ -154,7 +143,6 @@ for restart_num in range(num_of_restarts):
 
     # list of coherences
     coherences = {(window, threshold): create_coherences_framework(coh_names)}
-    #coherences = {(window, threshold): copy.deepcopy(coherences_carcass)}
 
     # range of models with different segmentation qualities
     for num_passes_total in num_passes_list:
@@ -190,7 +178,6 @@ for restart_num in range(num_of_restarts):
 
         # initialize tmp lists
         segm_quality_tmp = copy.deepcopy(segm_quality_carcass)
-        #coherences_tmp = {(window, threshold): copy.deepcopy(coherences_carcass)}
         coherences_tmp = {(window, threshold): create_coherences_framework(coh_names)}
 
         # start iterations (to fill tmp-lists)
@@ -262,9 +249,7 @@ for restart_num in range(num_of_restarts):
                 indent*indent_number,
                 window, threshold)
             )
-
             indent_number += 1
-
             
         # making appends to the result lists
         # segmentation
@@ -296,9 +281,6 @@ for restart_num in range(num_of_restarts):
             f.write(u'{}\n'.format(iter))
             for topic_name in model.topic_names:
                 f.write(u'{}\n'.format(topic_name))
-                #print(toptokens_data.tokens)
-                #print(toptokens_data.tokens[iter-1].keys())
-                #print( (topic_name) )
                 for (token, weight) in zip(toptokens_data.tokens[iter][topic_name],
                                            toptokens_data.weights[iter][topic_name]):
                     f.write(u"{} {}\n".format(token, weight))
