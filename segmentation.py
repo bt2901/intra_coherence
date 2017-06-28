@@ -79,18 +79,7 @@ def segmentation_evaluation(topics, collection, collection_path, files,
     
     #return res, {'soft': [], 'harsh': []}
     topics_number = len(topics)
-    '''
-    if (indexes is not None):
-        # segmentation evaluation
-        top_role_play_working_files = (
-            topic_role_playing(
-                topics=topics, role_nums=range(1, len(topics)+1),
-                files=files, files_path=collection_path,
-                phi_val=phi_val, phi_cols=phi_cols, phi_rows=phi_rows,
-                theta_val=theta_val, theta_cols=theta_cols, theta_rows=theta_rows,
-                indexes=indexes)
-        )
-    else:'''
+
     # role playing
     top_role_play = (
         calc_cost_matrix(
@@ -111,8 +100,6 @@ def segmentation_evaluation(topics, collection, collection_path, files,
             cost_row = [(sys.maxsize - col) for col in row]
             cost_matrix += [cost_row]
         indexes[s] = mnkr.compute(cost_matrix)
-        #print(indexes[s])
-        #print(mnkr.compute(cost_matrix2))
     
     # segmentation evaluation
     res = calc_solution_cost(indexes=indexes, cost_matrix=top_role_play)

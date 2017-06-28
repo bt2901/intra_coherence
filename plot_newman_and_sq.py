@@ -24,7 +24,11 @@ from segmentation import segmentation_evaluation
 from coherences import coh_newman, coh_mimno #, #coh_cosine
 from intra_coherence import coh_semantic, coh_toplen
     
-    
+''' TODO:
+1) use intra_coherence
+2) output experiment results
+3) fix function arguments
+'''
 
 def create_model(dictionary, num_tokens, num_document_passes):
 
@@ -52,9 +56,7 @@ threshold = 0.02
 cosine_num_top_tokens = 10
 focon_threshold = 5
 
-num_passes_list = range(1, 15)
 num_passes_list = [1, 2, 3, 4, 5, 6, 7]
-#num_passes_list = [1, ]
 num_passes_last = 0
 
 num_top_tokens = 10
