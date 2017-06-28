@@ -53,8 +53,8 @@ cosine_num_top_tokens = 10
 focon_threshold = 5
 
 num_passes_list = range(1, 15)
-#num_passes_list = [1, 2, 3, 4, 5, 6, 7]
-num_passes_list = [1, ]
+num_passes_list = [1, 2, 3, 4, 5, 6, 7]
+#num_passes_list = [1, ]
 num_passes_last = 0
 
 num_top_tokens = 10
@@ -124,12 +124,15 @@ def append_all_measures(coherences_tmp, window, threshold, coh_name, coh_list):
     measures_append(coherences_tmp, index, coh_name, 'median-of-means', np.median(coh_list['means']))
     measures_append(coherences_tmp, index, coh_name, 'median-of-medians', np.median(coh_list['medians']))
 
-t0 = time.time()
+def print_status(t0, indent_number, what_is_happening):
+    print('({0:>2d}:{1:>2d}){2} {3}'.format(
+        int(time.time()-t0)//60//60,
+        int(time.time()-t0)//60%60,
+        indent*indent_number,
+        what_is_happening)
+    )
 
-indent = '    '
-indent_number = 0
-
-for restart_num in range(num_of_restarts):
+def randomize_model(restart_num, model):
     np.random.seed(restart_num * restart_num + 42)
     
     topic_model_data, phi_numpy_matrix = model.master.attach_model('pwt')
@@ -138,6 +141,13 @@ for restart_num in range(num_of_restarts):
     random_init /= np.sum(random_init, axis=0)
     np.copyto(phi_numpy_matrix, random_init)
     
+t0 = time.time()
+
+indent = '    '
+indent_number = 0
+
+for restart_num in range(num_of_restarts):
+    randomize_model(restart_num, model)
     # list of segmentation evaluations - to be further used for plotting
     segm_quality = copy.deepcopy(segm_quality_carcass)
 
@@ -146,17 +156,9 @@ for restart_num in range(num_of_restarts):
 
     # range of models with different segmentation qualities
     for num_passes_total in num_passes_list:
-        print('************************\n({0:>2d}:{1:>2d}) num_passes: {2}'.format(
-            int(time.time()-t0)//60//60,
-            int(time.time()-t0)//60%60,
-            num_passes_total)
-        )
-
-        # teach model
-        print('({0:>2d}:{1:>2d}) teaching model'.format(
-            int(time.time()-t0)//60//60,
-            int(time.time()-t0)//60%60)
-        )
+        print('************************')
+        print_status(t0, indent_number, "num_passes: {}".format(num_passes_total))
+        print_status(t0, indent_number, "teaching model")
         indent_number += 1
 
         model.fit_offline(
@@ -182,29 +184,17 @@ for restart_num in range(num_of_restarts):
 
         # start iterations (to fill tmp-lists)
         for iteration in range(num_averaging_iterations):
-            print('({0:>2d}:{1:>2d}){2}iteration: {3}'.format(
-                int(time.time()-t0)//60//60,
-                int(time.time()-t0)//60%60,
-                indent*indent_number,
-                iteration)
-            )
-
+            print_status(t0, indent_number, "iteration: {}".format(iteration))
             indent_number += 1
 
             # get range of files to work with
             files = files_total[:100]
 
             # different types of coherence
-            for i in range(len(coh_names)):
-                coh_name = coh_names[i]
+            for i, coh_name in enumerate(coh_names):
+                print_status(t0, indent_number, coh_name)
+                
                 coh_func = coh_funcs[i]
-
-                print('({0:>2d}:{1:>2d}){2}{3}'.format(
-                    int(time.time()-t0)//60//60,
-                    int(time.time()-t0)//60%60,
-                    indent*indent_number, coh_name)
-                )
-
                 if (coh_name in coh_names_top_tokens):
                     coh_list = coh_func(
                         window=window, num_top_tokens=num_top_tokens,
@@ -217,13 +207,8 @@ for restart_num in range(num_of_restarts):
             indent_number -= 1
             indent_number -= 1
 
-            
             # current segmentation quality
-            print('({0:>2d}:{1:>2d}){2}segmentation evaluation'.format(
-                int(time.time()-t0)//60//60,
-                int(time.time()-t0)//60%60,
-                indent*indent_number)
-            )
+            print_status(t0, indent_number, "segmentation evaluation")
             
             cur_segm_eval, indexes = (
                 segmentation_evaluation(
@@ -242,13 +227,7 @@ for restart_num in range(num_of_restarts):
                 segm_quality_tmp['harsh'], cur_segm_eval['harsh']
             )
 
-            # printing parametres
-            print('({0:>2d}:{1:>2d}){2}window: {3}, threshold: {4}'.format(
-                int(time.time()-t0)//60//60,
-                int(time.time()-t0)//60%60,
-                indent*indent_number,
-                window, threshold)
-            )
+            print_status(t0, indent_number, "current parametres: window: {}, threshold: {}".format(window, threshold))
             indent_number += 1
             
         # making appends to the result lists

@@ -1,0 +1,4 @@
+*.pyc
+bigartm.*.log.*
+/results/
+toptokens2.txt
