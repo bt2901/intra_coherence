@@ -16,12 +16,13 @@ from math import floor, ceil, log
 import matplotlib.pyplot as plt
 from itertools import groupby
 
+from document_helper import get_docnum, calc_doc_ptdw, read_words_from_file
 
-def coh_toplen(threshold, topics, files, files_path,
+def coh_toplen(params, topics, files, files_path,
                phi_val, phi_cols, phi_rows,
                theta_val, theta_cols, theta_rows,
                general_penalty=0.005):
-    
+    threshold = params["threshold"]
     # lists of lists of topics' lengths
     top_lens = [[] for i in range(len(topics))]
     
@@ -34,10 +35,7 @@ def coh_toplen(threshold, topics, files, files_path,
         # (pos_topic_words[topic_num][f][idx] = word)
         pos_topic_words = [{} for topic in topics]
         
-        file = codecs.open(os.path.join(files_path, f), 'r', 'utf-8')
-        data_untouched = regex.sub('', file.read()).split()
-        file.close()
-        
+        data_untouched = read_words_from_file(f)        
         data, doc_ptdw = calc_doc_ptdw(
             f=f, topics=topics, known_words=known_words,
             phi_val=phi_val, phi_rows=phi_rows,
@@ -107,12 +105,12 @@ def distance_L2(wi, wj):
     return norm(np.subtract(wi, wj))
 
             
-def coh_semantic(window, topics, files, files_path,
+def coh_semantic(params, topics, files, files_path,
                  phi_val, phi_cols, phi_rows,
                  theta_val, theta_cols, theta_rows):
     
     known_words = phi_rows
-    
+    window = params["window"]
     means = [0 for i in range(len(topics))]
     N_list = [0 for i in range(len(topics))] # pairs examined
     for f in files:
@@ -162,4 +160,78 @@ def coh_semantic(window, topics, files, files_path,
     # throw out max value when counting mean
     # because if there is a background theme
     # it may affect the result largely
-    return {'means': res[np.argsort(res)[:-1]]}
+    return {'means': res[np.argsort(res)[:-1]], 'medians': np.full(res.shape, np.nan)}
+
+    
+def coh_focon(params, topics, files, files_path,
+              phi_val, phi_cols, phi_rows,
+              theta_val, theta_cols, theta_rows):
+
+    threshold = params["focon_threshold"]
+    res = 0.0
+
+    known_words = phi_rows
+    if ('topic' in known_words):
+        known_words.remove('topic')
+    
+    '''
+    # kinda determining background topic
+    argmax_list = np.argmax(phi_val, axis=1)
+    backgrnd = sp.stats.mode(argmax_list)[0][0] + 1
+    # and topic number is (backgrnd + 1)
+    '''
+    backgrnd = -1
+    cur_threshold = 0
+        
+    for f in files:       
+        if get_docnum(f) not in theta_cols:
+            continue
+
+        data, doc_ptdw = calc_doc_ptdw(
+            f=f, topics=topics, known_words=known_words,
+            phi_val=phi_val, phi_rows=phi_rows,
+            theta_val=theta_val, theta_cols=theta_cols
+        )
+        
+        # looking for the first appropriate word
+        i = 0
+        for i in range(len(data)):
+            if (data[i] in known_words and np.argmax(doc_ptdw[i]) != backgrnd):
+                vec1 = doc_ptdw[i]
+                break
+        
+        cur_threshold = 0
+        
+        for j in range(i+1, len(data)):
+            word = data[j]
+            
+            if (word not in known_words):
+                cur_threshold = 0
+                vec1 = None
+                continue
+            
+            if (vec1 is None and np.argmax(doc_ptdw[j]) == backgrnd):
+                cur_threshold = 0
+                continue
+            elif (vec1 is None and np.argmax(doc_ptdw[j]) != backgrnd):
+                vec1 = doc_ptdw[j]
+                cur_threshold = 0
+                continue
+            elif (vec1 is not None and np.argmax(doc_ptdw[j]) == backgrnd):
+                cur_threshold += 1
+                if (cur_threshold <= threshold):
+                    continue
+                else:
+                    cur_threshold = 0
+                    vec1 = None
+                    continue     
+            # if everything's all right:
+
+            vec2 = doc_ptdw[j]
+            
+            argsmax = np.argmax([vec1, vec2], axis=1)
+            res += np.sum(abs(vec1[argsmax] - vec2[argsmax]))
+            
+            vec1 = vec2
+    
+    return -1 * res

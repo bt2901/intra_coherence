@@ -70,6 +70,12 @@ def ptdw_vectorized(words, topics, phi_val, phi_rows, local_theta):
     
     return ptdw
     
+def read_words_from_file(f):
+    with codecs.open(os.path.join(pn_folder, domain_folder, f), 'r', 'utf-8') as file:
+        data = regex.sub('', file.read()).split()
+        return data
+
+    
 def calc_doc_ptdw(f, topics, known_words,
                   phi_val, phi_rows,
                   theta_val, theta_cols):
@@ -187,6 +193,7 @@ def data_results_save(pars_name, pars_segm, pars_coh, coh_names, file_name=None)
                         continue
                     if (coh == 'focon'):
                         x = pars_segm[segm_type]
+                        print(pars_coh[pair][coh])
                         y = pars_coh[pair][coh]['res']
                         x_tmp = np.array([u for (u, v) in sorted(zip(x, y), key=lambda pair: pair[0])])
                         y_tmp = np.array([v for (u, v) in sorted(zip(x, y), key=lambda pair: pair[0])])
