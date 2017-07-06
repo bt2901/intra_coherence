@@ -1,0 +1,130 @@
+# coding: utf-8
+from __future__ import print_function
+import os, glob
+import time
+
+import numpy as np
+import artm
+
+from document_helper import pn_folder, vw_folder, files_total, domain_path
+from measures_utils import ResultStorage, record_results    
+
+def create_model(dictionary, num_tokens, num_document_passes):
+
+    tn = ['topic {}'.format(i) for i in range(1, 20)]
+    scores = [artm.PerplexityScore(name='PerplexityScore', dictionary=dictionary),
+    artm.TopTokensScore(name='TopTokensScore', num_tokens=10), # web version of Palmetto works only with <= 10 tokens
+    artm.SparsityPhiScore(name='SparsityPhiScore'),
+    artm.SparsityThetaScore(name='SparsityThetaScore')]
+                      
+    model = artm.ARTM(topic_names=tn, regularizers=[], cache_theta=True, scores=scores)
+
+    model.initialize(dictionary=dictionary)
+    model.num_document_passes = num_document_passes
+    
+    return model
+
+
+coh_names = ['newman', 'mimno', 
+             'semantic', 'toplen', 'focon']
+
+intra_coherence_params = {
+    "window": 10, "threshold": 0.02, "focon_threshold": 5, "cosine_num_top_tokens": 10, "num_top_tokens": 10
+}
+
+num_passes_list = [1, 2, 3]
+num_passes_last = 0
+
+num_top_tokens = 10
+
+
+
+
+# Vowpal Wabbit
+batch_vectorizer = None
+
+if len(glob.glob(os.path.join(pn_folder, vw_folder, '*.batch'))) < 1:
+    batch_vectorizer = artm.BatchVectorizer(data_path=os.path.join(pn_folder, vw_folder, 'vw.txt'),
+                                            data_format='vowpal_wabbit',
+                                            target_folder=os.path.join(pn_folder, vw_folder)) 
+else:
+    batch_vectorizer = artm.BatchVectorizer(data_path=os.path.join(pn_folder, vw_folder),
+                                            data_format='batches')
+
+dictionary = artm.Dictionary()
+
+dict_path = os.path.join(pn_folder, vw_folder, 'dict.dict')
+
+if not os.path.isfile(dict_path):
+    dictionary.gather(data_path=batch_vectorizer.data_path)
+    dictionary.save(dictionary_path=dict_path)
+
+dictionary.load(dictionary_path=dict_path)
+
+
+dictionary.filter(min_df=2, max_df_rate=0.4)
+
+N = 1
+# model
+model = create_model(dictionary=dictionary,
+                     num_tokens=num_top_tokens,
+                     num_document_passes=N) 
+
+# number of cycles
+num_of_restarts = 2
+
+def print_status(t0, indent_number, what_is_happening):
+    print('({0:>2d}:{1:>2d}){2} {3}'.format(
+        int(time.time()-t0)//60//60,
+        int(time.time()-t0)//60%60,
+        indent*indent_number,
+        what_is_happening)
+    )
+
+def randomize_model(restart_num, model):
+    np.random.seed(restart_num * restart_num + 42)
+    
+    topic_model_data, phi_numpy_matrix = model.master.attach_model('pwt')
+    
+    random_init = np.random.random_sample(phi_numpy_matrix.shape)
+    random_init /= np.sum(random_init, axis=0)
+    np.copyto(phi_numpy_matrix, random_init)
+    
+t0 = time.time()
+
+indent = '    '
+indent_number = 0
+data_storage = ResultStorage(coh_names, domain_path=domain_path)
+for restart_num in range(num_of_restarts):
+    randomize_model(restart_num, model)
+    # range of models with different segmentation qualities
+    for num_passes_total in num_passes_list:
+        print('************************')
+        print_status(t0, indent_number, "teaching model at iter {}".format(num_passes_total))
+        indent_number += 1
+    
+        model.fit_offline(batch_vectorizer=batch_vectorizer,
+            num_collection_passes=num_passes_total-num_passes_last
+        )
+        num_passes_last = num_passes_total
+
+        model_id = str({"name": "PLSA", "restart_num": restart_num, "iter": num_passes_total})
+        with record_results(model=model, files=files_total, at=model_id, save_in=data_storage) as recorder:
+            for coh_name in coh_names:
+                print_status(t0, indent_number, coh_name)
+                recorder.evaluate(coh_name, intra_coherence_params)
+                    
+            indent_number -= 1
+            indent_number -= 1
+
+            print_status(t0, indent_number, "segmentation evaluation")
+            recorder.evaluate_segmentation_quality()
+
+            #print_status(t0, indent_number, "current parametres: window: {}, threshold: {}".format(window, threshold))
+            indent_number += 1
+            
+        indent_number -= 1
+    
+    print(data_storage.segm_quality["soft"].items())
+    #data_storage.data_results_save(file_name=something)
+    

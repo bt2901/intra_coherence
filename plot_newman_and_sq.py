@@ -57,7 +57,7 @@ intra_coherence_params = {
     "window": 10, "threshold": 0.02, "focon_threshold": 5, "cosine_num_top_tokens": 10
 }
 
-num_passes_list = [1, ]
+num_passes_list = [1, 2, 3]
 num_passes_last = 0
 
 num_top_tokens = 10
@@ -195,7 +195,7 @@ for restart_num in range(num_of_restarts):
             indent_number += 1
 
             # get range of files to work with
-            files = files_total[:100]
+            files = files_total
 
             # different types of coherence
             for i, coh_name in enumerate(coh_names):
@@ -262,8 +262,9 @@ for restart_num in range(num_of_restarts):
 
         indent_number -= 1
         
+    print ('DBG')
     print (coherences[(window, threshold)]['focon'])
-
+    
     data_results_save(pars_name=['window', 'threshold'],
         pars_segm=segm_quality,
         pars_coh=coherences,

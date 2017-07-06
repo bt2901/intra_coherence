@@ -138,7 +138,7 @@ def data_results_save(pars_name, pars_segm, pars_coh, coh_names, file_name=None)
         print('Different lengths of x- and y- arrays')
         return
     '''
-
+    print("SAVING {}".format((len(pars_segm[list(pars_segm.keys())[0]]), len(pars_coh[list(pars_coh.keys())[0]]['newman']['mean-of-means']))))
     averaging_types = ['mean-of-means', 'mean-of-medians',
                        'median-of-means', 'median-of-medians']
     corrs = {prs: 'prs', spr: 'spr'}
@@ -181,6 +181,7 @@ def data_results_save(pars_name, pars_segm, pars_coh, coh_names, file_name=None)
             for corr in corrs:
                 row = [corrs[corr]]
                 for coh in coh_names:
+                    print("SAVING {}".format(coh))
                     if (coh == 'semantic'):
                         for av_type in ['mean-of-means', 'median-of-means']:
                             x = pars_segm[segm_type]
@@ -192,8 +193,8 @@ def data_results_save(pars_name, pars_segm, pars_coh, coh_names, file_name=None)
                             row += ["'{0:.2f}".format(corr(x, y))]
                         continue
                     if (coh == 'focon'):
+                        #continue
                         x = pars_segm[segm_type]
-                        print(pars_coh[pair][coh])
                         y = pars_coh[pair][coh]['res']
                         x_tmp = np.array([u for (u, v) in sorted(zip(x, y), key=lambda pair: pair[0])])
                         y_tmp = np.array([v for (u, v) in sorted(zip(x, y), key=lambda pair: pair[0])])
@@ -203,6 +204,7 @@ def data_results_save(pars_name, pars_segm, pars_coh, coh_names, file_name=None)
                         continue
 
                     for av_type in averaging_types:
+                        #continue
                         x = pars_segm[segm_type]
                         y = pars_coh[pair][coh][av_type]
                         x_tmp = np.array([u for (u, v) in sorted(zip(x, y), key=lambda pair: pair[0])])
