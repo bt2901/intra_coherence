@@ -24,6 +24,36 @@ def create_model(dictionary, num_tokens, num_document_passes):
     
     return model
 
+def create_model_with_background(dictionary, num_tokens, num_document_passes):
+
+    sm_phi_tau = 0.0001 * 1e-4
+    sp_phi_tau = -0.0001 * 1e-4
+
+    decor_phi_tau = 1
+
+    specific_topics = ['topic {}'.format(i) for i in range(1, 20)]
+    topic_names = specific_topics + ["background"]
+    scores = [
+        artm.PerplexityScore(name='PerplexityScore', dictionary=dictionary),
+        artm.TopTokensScore(name='TopTokensScore', num_tokens=10), # web version of Palmetto works only with <= 10 tokens
+        artm.SparsityPhiScore(name='SparsityPhiScore'),
+        artm.SparsityThetaScore(name='SparsityThetaScore'),
+        artm.TopicKernelScore(name='TopicKernelScore', probability_mass_threshold=0.3)
+        ]
+                      
+    model = artm.ARTM(topic_names=specific_topics + ["background"], regularizers=[], cache_theta=True, scores=scores)
+
+    model.regularizers.add(artm.SmoothSparsePhiRegularizer(name='SparsePhi', tau=-sp_phi_tau, topic_names=specific_topics))
+    model.regularizers.add(artm.SmoothSparsePhiRegularizer(name='SmoothPhi', tau=sm_phi_tau, topic_names=["background"]))
+    # model.regularizers.add(artm.DecorrelatorPhiRegularizer(name='DecorrelatorPhi', tau=decor_phi_tau))
+
+    model.initialize(dictionary=dictionary)
+    model.num_document_passes = num_document_passes
+    
+    return model
+
+
+
 
 coh_names = ['newman', 'mimno', 
              'semantic', 'toplen', 'focon']
@@ -33,7 +63,6 @@ intra_coherence_params = {
 }
 
 num_passes_list = [1, 2, 3]
-num_passes_last = 0
 
 num_top_tokens = 10
 
@@ -66,7 +95,7 @@ dictionary.filter(min_df=2, max_df_rate=0.4)
 
 N = 1
 # model
-model = create_model(dictionary=dictionary,
+model = create_model_with_background(dictionary=dictionary,
                      num_tokens=num_top_tokens,
                      num_document_passes=N) 
 
@@ -98,6 +127,7 @@ data_storage = ResultStorage(coh_names, domain_path=domain_path)
 for restart_num in range(num_of_restarts):
     randomize_model(restart_num, model)
     # range of models with different segmentation qualities
+    num_passes_last = 0
     for num_passes_total in num_passes_list:
         print('************************')
         print_status(t0, indent_number, "teaching model at iter {}".format(num_passes_total))

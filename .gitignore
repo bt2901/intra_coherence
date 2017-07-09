@@ -2,3 +2,5 @@
 bigartm.*.log.*
 /results/
 toptokens2.txt
+/pn_mixed_lemmatized_full/
+/PNaukaMixedLemmatized_full/
