@@ -39,6 +39,24 @@ def gen_vowpal(plaintext):
     tokens_string = u" ".join(u"{}".format(tok) for tok in all_tokens if not is_bad_word(tok))
     return tokens_string
 
+def get_orig_labels(data_filtered, data):
+    '''
+    get original_topic_labels all at once
+    could be sped up, but it takes < 1 second for entire collection, not really significant 
+    '''
+    original_topic_labels = [0 for x in data_filtered]
+    i, j = 0, 0
+    current_topic = None
+    while i < len(data_filtered):
+        if data[j] == "topic":
+            current_topic = int(data[j+1]) - 1 # will crash if not number
+            j += 2
+        if data_filtered[i] == data[j]:
+            original_topic_labels[i] = current_topic
+            i, j = i+1, j+1
+        else:
+            j += 1
+    return original_topic_labels
 
 
 
@@ -50,8 +68,13 @@ def vowpalize(dir_name):
             content = f.read()
             doc_id = doc.strip().split("\\")[1]
             vowpal_desc = gen_vowpal(content)
-            full_desc = u"{} |plain_text {}\n".format(doc, vowpal_desc)
-            with codecs.open("vw_{}.txt".format("mixed"), "a", encoding="utf8") as out:
+            original_labels = get_orig_labels(vowpal_desc, content)
+            with codecs.open("vw_{}.txt".format("bimodal"), "a", encoding="utf8") as out:
+                full_desc = u"{} |plain_text {} |labels {} \n".format(doc, vowpal_desc, original_labels)
                 out.write(full_desc)
+            with codecs.open("vw_{}.txt".format("plaintext"), "a", encoding="utf8") as out:
+                out.write( u"{} |plain_text {} \n".format(doc, vowpal_desc) )
+            with codecs.open("vw_{}.txt".format("labels"), "a", encoding="utf8") as out:
+                out.write( u"{} |labels {} \n".format(doc, original_labels) )
 
 vowpalize("PNaukaMixedLemmatized_short")
