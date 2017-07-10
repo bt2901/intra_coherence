@@ -21,15 +21,6 @@ import scipy as sp
 
 
 
-def my_sort_func(f):
-    try:
-        fnum = f.split("\\")[-1]
-        res = int(fnum.split('.')[0])
-    except ValueError:
-        res = -1
-    return res
-
-
 pn_folder = r''
 vw_folder = 'pn_mixed_lemmatized'
 
@@ -39,13 +30,6 @@ files_total = os.listdir(domain_path)
 files_total = sorted(files_total, key=my_sort_func)
 
 
-
-
-
-def get_docnum(f):
-    short_name = f.split('\\')[-1] # TODO: make more portable, this works only with Windows 
-    doc_num = int(short_name.split('.')[0]) - 1
-    return doc_num
 
 regex = re.compile(u'[%s]' % re.escape('.')) # to use regex.sub('', s) further
 
@@ -57,7 +41,7 @@ def read_file_data(f):
     return data
 
         
-def ptdw_vectorized(words, topics, phi_val, phi_rows, local_theta):
+def ptdw_vectorized(words, phi_val, phi_rows, local_theta):
     sort = np.argsort(phi_rows)
     rank = np.searchsorted(phi_rows, words, sorter=sort)
     idx_word_array = sort[rank]
@@ -76,21 +60,17 @@ def read_words_from_file(f):
         return data
 
     
-def calc_doc_ptdw(f, topics, known_words,
+def calc_doc_ptdw(data, doc_num,
                   phi_val, phi_rows,
                   theta_val, theta_cols):
-    with codecs.open(os.path.join(pn_folder, domain_folder, f), 'r', 'utf-8') as file:
-        data = regex.sub('', file.read()).split()
-        data = [w for w in data if (w != 'topic' and not w.isdigit() and w in known_words)]
 
-        doc_num = get_docnum(f)
         idx_doc = theta_cols.index(doc_num)
         
         local_theta = theta_val[:, idx_doc]
         
-        doc_ptdw = ptdw_vectorized(data, topics, phi_val, phi_rows, local_theta)
+        doc_ptdw = ptdw_vectorized(data, phi_val, phi_rows, local_theta)
         
-        return data, doc_ptdw
+        return doc_ptdw
     
 # ===========
 

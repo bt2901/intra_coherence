@@ -16,9 +16,10 @@ from math import floor, ceil, log
 import matplotlib.pyplot as plt
 from itertools import groupby
 
-from document_helper import get_docnum, calc_doc_ptdw, read_words_from_file
+from document_helper import calc_doc_ptdw
 
-def coh_toplen(params, topics, files, files_path,
+
+def coh_toplen(params, topics, f,
                phi_val, phi_cols, phi_rows,
                theta_val, theta_cols, theta_rows,
                general_penalty=0.005):
@@ -28,27 +29,25 @@ def coh_toplen(params, topics, files, files_path,
     
     known_words = phi_rows
         
-    for f in files:
-        if get_docnum(f) not in theta_cols:
-            continue
+    for line in f:
+        modals = line.split("|")
+        doc_num = modals[0].strip()
+        data = modals[1].split(" ")[1:]
         # positions of topic-related words in the document (and these words as well)
         # (pos_topic_words[topic_num][f][idx] = word)
         pos_topic_words = [{} for topic in topics]
         
-        data_untouched = read_words_from_file(f)        
-        data, doc_ptdw = calc_doc_ptdw(
-            f=f, topics=topics, known_words=known_words,
+        doc_ptdw = calc_doc_ptdw(data, doc_num, 
             phi_val=phi_val, phi_rows=phi_rows,
             theta_val=theta_val, theta_cols=theta_cols
         )
         
-        for j in range(len(data_untouched)):
-            word = data_untouched[j]
+        for j, word in enumerate(data):
             
             if (word not in known_words):
                 continue
                 
-            p_tdw_list = doc_ptdw[data.index(word)]
+            p_tdw_list = doc_ptdw[j]
             pos_topic_words[np.argmax(p_tdw_list)][j] = word
         
         pos_list = [sorted(pos_topic_words[l]) for l in range(len(topics))]
@@ -64,8 +63,8 @@ def coh_toplen(params, topics, files, files_path,
                 idx = i # first word is also taking part in calculations
                 cur_sum = threshold
 
-                while (cur_sum >= 0 and idx < len(data_untouched)):
-                    word = data_untouched[idx]
+                while (cur_sum >= 0 and idx < len(data)):
+                    word = data[idx]
                     
                     # word is out of Phi
                     if (word not in known_words):
@@ -73,7 +72,7 @@ def coh_toplen(params, topics, files, files_path,
                         idx += 1
                         continue
                         
-                    p_tdw_list = doc_ptdw[data.index(word)]
+                    p_tdw_list = doc_ptdw[idx]
 
                     argsort_list = np.argsort(np.array(p_tdw_list))
                     idxmax = argsort_list[-1 - bool(argsort_list[-1] == l)]

@@ -37,7 +37,7 @@ def gen_vowpal(plaintext):
         all_tokens += cur_tokens
 
     tokens_string = u" ".join(u"{}".format(tok) for tok in all_tokens if not is_bad_word(tok))
-    return tokens_string
+    return tokens_string, all_tokens
 
 def get_orig_labels(data_filtered, data):
     '''
@@ -56,7 +56,7 @@ def get_orig_labels(data_filtered, data):
             i, j = i+1, j+1
         else:
             j += 1
-    return original_topic_labels
+    return u" ".join(u"{}".format(tok) for tok in original_topic_labels)
 
 
 
@@ -67,14 +67,15 @@ def vowpalize(dir_name):
         with codecs.open(doc, "r", encoding="utf8") as f:
             content = f.read()
             doc_id = doc.strip().split("\\")[1]
-            vowpal_desc = gen_vowpal(content)
-            original_labels = get_orig_labels(vowpal_desc, content)
+            doc_id = doc_id.split(".")[0]
+            vowpal_desc, raw_tokens = gen_vowpal(content)
+            original_labels = get_orig_labels(vowpal_desc.split(" "), raw_tokens)
             with codecs.open("vw_{}.txt".format("bimodal"), "a", encoding="utf8") as out:
-                full_desc = u"{} |plain_text {} |labels {} \n".format(doc, vowpal_desc, original_labels)
+                full_desc = u"{} |plain_text {} |labels {} \n".format(doc_id, vowpal_desc, original_labels)
                 out.write(full_desc)
             with codecs.open("vw_{}.txt".format("plaintext"), "a", encoding="utf8") as out:
-                out.write( u"{} |plain_text {} \n".format(doc, vowpal_desc) )
+                out.write( u"{} |plain_text {} \n".format(doc_id, vowpal_desc) )
             with codecs.open("vw_{}.txt".format("labels"), "a", encoding="utf8") as out:
-                out.write( u"{} |labels {} \n".format(doc, original_labels) )
+                out.write( u"{} |labels {} \n".format(doc_id, original_labels) )
 
 vowpalize("PNaukaMixedLemmatized_short")
