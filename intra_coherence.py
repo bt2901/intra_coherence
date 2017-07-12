@@ -16,7 +16,7 @@ from math import floor, ceil, log
 import matplotlib.pyplot as plt
 from itertools import groupby
 
-from document_helper import calc_doc_ptdw
+from document_helper import calc_doc_ptdw, read_plaintext
 
 
 def coh_toplen(params, topics, f,
@@ -30,9 +30,8 @@ def coh_toplen(params, topics, f,
     known_words = phi_rows
         
     for line in f:
-        modals = line.split("|")
-        doc_num = modals[0].strip()
-        data = modals[1].split(" ")[1:]
+        doc_num, data = read_plaintext(line)
+
         # positions of topic-related words in the document (and these words as well)
         # (pos_topic_words[topic_num][f][idx] = word)
         pos_topic_words = [{} for topic in topics]

@@ -19,6 +19,7 @@ from itertools import groupby
 
 
 from document_helper import regex
+from document_helper import read_plaintext
 
 # ### 2-old Mimno
 
@@ -35,7 +36,7 @@ from document_helper import regex
 
 # In[13]:
 
-def coh_mimno(window, num_top_tokens, model, topics, files, files_path):
+def coh_mimno(window, num_top_tokens, model, topics, file):
     means = [0 for i in range(len(topics))] # part of result
     medians = [0 for i in range(len(topics))] # part of result
     
@@ -54,11 +55,8 @@ def coh_mimno(window, num_top_tokens, model, topics, files, files_path):
            for k in range(len(topics))]
     ) # matrix[t] = d(wi, wj) - number of articles containing both wi and wj
     
-    for f in files:
-        if "txt" not in f:
-            continue
-        file = codecs.open(os.path.join(files_path, f), 'r', 'utf-8')
-        data = regex.sub(u'', file.read()).split()
+    for line in file:
+        doc_num, data = read_plaintext(line)
               
         if (len(data) < window):
             continue
@@ -90,9 +88,7 @@ def coh_mimno(window, num_top_tokens, model, topics, files, files_path):
                             matrix_current[k][j][i] = 1
             left += 1
             right += 1
-            
-        file.close()
-        
+                    
         dw = np.add(dw, dw_current)
         matrix = np.add(matrix, matrix_current)
     
@@ -163,7 +159,7 @@ def coh_cosine(num_top_tokens, model, topics, phi_val, phi_rows):
     
     
 
-def coh_newman(window, num_top_tokens, model, topics, files, files_path):
+def coh_newman(window, num_top_tokens, model, topics, file):
     means = [0 for i in range(len(topics))] # part of future result
     medians = [0 for i in range(len(topics))] # part of future result
     
@@ -180,11 +176,8 @@ def coh_newman(window, num_top_tokens, model, topics, files, files_path):
            for j in range(0, len(topic_words[0]))] for topic in topics]
     ) # matrix[t] = (p(wi, wj))
     
-    for f in files:
-        if "txt" not in f:
-            continue
-        file = codecs.open(os.path.join(files_path, f), 'r', 'utf-8')
-        data = regex.sub(u'', file.read()).split()
+    for line in file:
+        doc_num, data = read_plaintext(line)
         
         if (len(data) < window):
             continue
@@ -216,7 +209,6 @@ def coh_newman(window, num_top_tokens, model, topics, files, files_path):
             left += 1
             right += 1
             
-        file.close()
         N += left + 1
     
     pw = np.array(pw)

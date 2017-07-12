@@ -16,11 +16,12 @@ from math import floor, ceil, log
 import matplotlib.pyplot as plt
 from itertools import groupby
 
-from document_helper import get_orig_labels, get_docnum, calc_doc_ptdw, read_file_data
+#from document_helper import get_orig_labels, get_docnum, calc_doc_ptdw, read_file_data
+from document_helper import calc_doc_ptdw, read_plaintext_and_labels
 
 
             
-def calc_cost_matrix(topics, role_nums, files, files_path,
+def calc_cost_matrix(topics, role_nums, f,
                        phi_val, phi_cols, phi_rows,
                        theta_val, theta_cols, theta_rows):
     t_start = time.time()
@@ -34,20 +35,13 @@ def calc_cost_matrix(topics, role_nums, files, files_path,
     sum_p_tdw = np.zeros((len(role_nums), len(topics)))
     hits_num = np.zeros((len(role_nums), len(topics)))
     
-    for f in tqdm.tqdm(files):
-        if "txt" not in f:
-            continue
-        doc_num = get_docnum(f)
-        if doc_num not in theta_cols:
-            continue
-        data = read_file_data(f)
+    for line in f:
+        doc_num, data, original_topic_labels = read_plaintext_and_labels(line)
 
-        data_filtered, doc_ptdw = calc_doc_ptdw(
-            f=f, topics=topics, known_words=known_words,
+        doc_ptdw = calc_doc_ptdw(data, doc_num, 
             phi_val=phi_val, phi_rows=phi_rows,
             theta_val=theta_val, theta_cols=theta_cols
         )
-        original_topic_labels = get_orig_labels(data_filtered, data)
         for i, original_topic_num in enumerate(original_topic_labels):
             sum_p_tdw[:, original_topic_num] += doc_ptdw[i]
         argmax_indices = np.argmax(doc_ptdw, axis=1)
@@ -67,7 +61,7 @@ def calc_solution_cost(indexes, cost_matrix):
 
     return {'soft': res_s, 'harsh': res_h}
 
-def segmentation_evaluation(topics, collection, collection_path, files,
+def segmentation_evaluation(topics, f,
                             phi_val, phi_cols, phi_rows,
                             theta_val, theta_cols, theta_rows,
                             indexes=None):
@@ -79,12 +73,12 @@ def segmentation_evaluation(topics, collection, collection_path, files,
     
     #return res, {'soft': [], 'harsh': []}
     topics_number = len(topics)
-
+    
     # role playing
     top_role_play = (
         calc_cost_matrix(
             topics=topics, role_nums=range(1, len(topics)+1),
-            files=files, files_path=collection_path,
+            f=f,
             phi_val=phi_val, phi_cols=phi_cols, phi_rows=phi_rows,
             theta_val=theta_val, theta_cols=theta_cols, theta_rows=theta_rows)
     )

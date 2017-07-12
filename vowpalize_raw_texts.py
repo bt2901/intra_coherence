@@ -6,7 +6,7 @@ import codecs, string
 from nltk.corpus import stopwords
 
 
-exclude = string.punctuation + u'«' + u'»' + u'—' + u'…'
+exclude = string.punctuation + u'«' + u'»' + u'—' + u'…' + u'„' + u'“'
 digits = u'0123456789'
 english_vowels = u'aeiouy'
 regex = re.compile(u'[%s]' % re.escape(exclude)) # regex.sub('', s) to be used further
@@ -15,13 +15,12 @@ stop_words = []
 
 forbidden_set = set(digits) | set(exclude) | set(stop_words)
 
+cyrillic_symbols = set(u"абвгдеёжзийклмнопрстуфхцчшщъыьэюяАБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ")
+
 def is_bad_word(word):
+    if len(set(word) - cyrillic_symbols) > 0:
+        return True
     if len(word) == 0:
-        return True
-    if word == u'topic' or word in forbidden_set:
-        return True
-    # are there punctuation marks inside word?
-    if (len(forbidden_set.intersection(set(word))) > 0):
         return True
     return False
 

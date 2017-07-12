@@ -9,15 +9,19 @@ import artm
 from document_helper import pn_folder, vw_folder, files_total, domain_path
 from measures_utils import ResultStorage, record_results    
 
+print(artm.version())
+
 def create_model(dictionary, num_tokens, num_document_passes):
 
-    tn = ['topic {}'.format(i) for i in range(1, 20)]
+    specific_topics = ['topic {}'.format(i) for i in range(1, 20)]
     scores = [artm.PerplexityScore(name='PerplexityScore', dictionary=dictionary),
     artm.TopTokensScore(name='TopTokensScore', num_tokens=10), # web version of Palmetto works only with <= 10 tokens
     artm.SparsityPhiScore(name='SparsityPhiScore'),
     artm.SparsityThetaScore(name='SparsityThetaScore')]
                       
-    model = artm.ARTM(topic_names=tn, regularizers=[], cache_theta=True, scores=scores)
+    model = artm.ARTM(topic_names=specific_topics, 
+        regularizers=[], cache_theta=True, scores=scores,
+        class_ids={'plain_text': 1.0})
 
     model.initialize(dictionary=dictionary)
     model.num_document_passes = num_document_passes
@@ -35,13 +39,15 @@ def create_model_with_background(dictionary, num_tokens, num_document_passes):
     topic_names = specific_topics + ["background"]
     scores = [
         artm.PerplexityScore(name='PerplexityScore', dictionary=dictionary),
-        artm.TopTokensScore(name='TopTokensScore', num_tokens=10), # web version of Palmetto works only with <= 10 tokens
+        artm.TopTokensScore(name='TopTokensScore', num_tokens=10, class_id='plain_text'), # web version of Palmetto works only with <= 10 tokens
         artm.SparsityPhiScore(name='SparsityPhiScore'),
         artm.SparsityThetaScore(name='SparsityThetaScore'),
         artm.TopicKernelScore(name='TopicKernelScore', probability_mass_threshold=0.3)
         ]
                       
-    model = artm.ARTM(topic_names=specific_topics + ["background"], regularizers=[], cache_theta=True, scores=scores)
+    model = artm.ARTM(topic_names=specific_topics + ["background"], 
+        regularizers=[], cache_theta=True, scores=scores,
+        class_ids={'plain_text': 1.0})
 
     model.regularizers.add(artm.SmoothSparsePhiRegularizer(name='SparsePhi', tau=-sp_phi_tau, topic_names=specific_topics))
     model.regularizers.add(artm.SmoothSparsePhiRegularizer(name='SmoothPhi', tau=sm_phi_tau, topic_names=["background"]))
@@ -58,6 +64,8 @@ def create_model_with_background(dictionary, num_tokens, num_document_passes):
 coh_names = ['newman', 'mimno', 
              'semantic', 'toplen', 'focon']
 
+coh_names = ['newman', 'mimno', 'toplen']
+
 intra_coherence_params = {
     "window": 10, "threshold": 0.02, "focon_threshold": 5, "cosine_num_top_tokens": 10, "num_top_tokens": 10
 }
@@ -73,7 +81,7 @@ num_top_tokens = 10
 batch_vectorizer = None
 
 if len(glob.glob(os.path.join(pn_folder, vw_folder, '*.batch'))) < 1:
-    batch_vectorizer = artm.BatchVectorizer(data_path=os.path.join(pn_folder, vw_folder, 'vw.txt'),
+    batch_vectorizer = artm.BatchVectorizer(data_path=os.path.join(pn_folder, vw_folder, 'vw_bimodal.txt'),
                                             data_format='vowpal_wabbit',
                                             target_folder=os.path.join(pn_folder, vw_folder)) 
 else:
@@ -91,7 +99,7 @@ if not os.path.isfile(dict_path):
 dictionary.load(dictionary_path=dict_path)
 
 
-dictionary.filter(min_df=2, max_df_rate=0.4)
+#dictionary.filter(min_df=2, max_df_rate=0.4)
 
 N = 1
 # model
@@ -139,7 +147,7 @@ for restart_num in range(num_of_restarts):
         num_passes_last = num_passes_total
 
         model_id = str({"name": "PLSA", "restart_num": restart_num, "iter": num_passes_total})
-        with record_results(model=model, files=files_total, at=model_id, save_in=data_storage) as recorder:
+        with record_results(model=model, vw_file="vw_bimodal.txt", at=model_id, save_in=data_storage) as recorder:
             for coh_name in coh_names:
                 print_status(t0, indent_number, coh_name)
                 recorder.evaluate(coh_name, intra_coherence_params)

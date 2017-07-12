@@ -5,6 +5,7 @@ import traceback
 
 import numpy as np
 
+import codecs
 from collections import defaultdict
 
 from document_helper import files_total, data_results_save
@@ -50,9 +51,9 @@ class ResultStorage(object):
 
 functions_data = {name: {"func": func, "by_top_tokens": (name in coh_names_top_tokens)} for name, func in zip(coh_names, coh_funcs)}
 class record_results(object):
-    def __init__(self, model, files, at, save_in):
+    def __init__(self, model, vw_file, at, save_in):
         self.save_in = save_in
-        self.files = files
+        self.vw_file = vw_file
         self.at = at
         self.model = model
     def __enter__(self):
@@ -76,28 +77,33 @@ class record_results(object):
     def evaluate(self, coh_name, coh_params):
         #raise NotImplementedError
         coh_func = functions_data[coh_name]["func"]
-        if (coh_name in coh_names_top_tokens):
-            (window, num_top_tokens) = coh_params["window"], coh_params["num_top_tokens"]
-            coh_list = coh_func(
-                window=window, num_top_tokens=num_top_tokens,
-                model=self.model, topics=self.model.topic_names,
-                files=self.files, files_path=self.save_in.domain_path
-            )
-        else:
-            coh_list = coh_func(
-                coh_params, topics=self.model.topic_names,
-                files=self.files, files_path=self.save_in.domain_path,
-                phi_val=self.phi.values, phi_cols=self.phi_cols, phi_rows=self.phi_rows,
-                theta_val=self.theta.values, theta_cols=self.theta_cols, theta_rows=self.theta_rows,
-            )
+        with codecs.open(self.vw_file, "r", encoding="utf8") as f:
+            if (coh_name in coh_names_top_tokens):
+                if len(self.model.score_tracker['TopTokensScore'].last_tokens) == 0:
+                    print("WARNING: top tokens is empty")
+                    res_shape = (len(self.model.topic_names) - 1,)
+                    coh_list = {'means': np.full(res_shape, np.nan),
+                            'medians': np.full(res_shape, np.nan)}
+                else:
+                    (window, num_top_tokens) = coh_params["window"], coh_params["num_top_tokens"]
+                    coh_list = coh_func(
+                        window=window, num_top_tokens=num_top_tokens,
+                        model=self.model, topics=self.model.topic_names,
+                        file=f
+                    )
+            else:
+                coh_list = coh_func(
+                    coh_params, self.model.topic_names, f, 
+                    phi_val=self.phi.values, phi_cols=self.phi_cols, phi_rows=self.phi_rows,
+                    theta_val=self.theta.values, theta_cols=self.theta_cols, theta_rows=self.theta_rows,
+                )
 
         self._append_all_measures(self._coherences_tmp, coh_name, coh_list)
     def evaluate_segmentation_quality(self):
+        with codecs.open(self.vw_file, "r", encoding="utf8") as f:
             cur_segm_eval, indexes = (
                 segmentation_evaluation(
-                    topics=self.model.topic_names,
-                    collection=self.files, collection_path=self.save_in.domain_path,
-                    files=self.files,
+                    topics=self.model.topic_names, f=f,
                     phi_val=self.phi.values, phi_cols=self.phi_cols, phi_rows=self.phi_rows,
                     theta_val=self.theta.values, theta_cols=self.theta_cols, theta_rows=self.theta_rows,
                     indexes=None

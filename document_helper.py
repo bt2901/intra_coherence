@@ -27,12 +27,31 @@ vw_folder = 'pn_mixed_lemmatized'
 domain_folder = 'PNaukaMixedLemmatized_short'
 domain_path = os.path.join(pn_folder, domain_folder)
 files_total = os.listdir(domain_path)
-files_total = sorted(files_total, key=my_sort_func)
+#files_total = sorted(files_total, key=my_sort_func)
 
 
 
 regex = re.compile(u'[%s]' % re.escape('.')) # to use regex.sub('', s) further
 
+def read_plaintext(line):
+    modals = line.split("|")
+    doc_num = int(modals[0].strip()) - 1
+    data = modals[1].split(" ")[1:]
+    return doc_num, data
+    
+def read_plaintext_and_labels(line):
+    modals = line.split("|")
+    doc_num = int(modals[0].strip()) - 1
+    data = modals[1].strip().split(" ")[1:]
+    labels = [int(x) for x in modals[2].strip().split(" ")[1:]]
+    return doc_num, data, labels
+
+def read_file_data(f):
+    file = codecs.open(os.path.join(pn_folder, domain_folder, f), 'r', 'utf-8')
+
+    data = regex.sub(u'', file.read()).split()
+    file.close()
+    return data
 def read_file_data(f):
     file = codecs.open(os.path.join(pn_folder, domain_folder, f), 'r', 'utf-8')
 
@@ -44,6 +63,18 @@ def read_file_data(f):
 def ptdw_vectorized(words, phi_val, phi_rows, local_theta):
     sort = np.argsort(phi_rows)
     rank = np.searchsorted(phi_rows, words, sorter=sort)
+
+    '''
+    for i, (w, r) in enumerate(zip(words, rank)):
+        if r >= sort.shape[0]:
+            clean = re.sub('[\0\200-\377]', '^', w)
+            print (i, r, len(w))
+            print (clean)
+    '''
+    
+    #print (rank)
+    
+    #print (sort)
     idx_word_array = sort[rank]
     phi_list = phi_val[idx_word_array, :]
     
