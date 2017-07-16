@@ -64,13 +64,15 @@ def create_model_with_background(dictionary, num_tokens, num_document_passes):
 coh_names = ['newman', 'mimno', 
              'semantic', 'toplen', 'focon']
 
-coh_names = ['newman', 'mimno', 'toplen']
+#coh_names = ['newman', 'mimno', 'toplen']
+coh_names = ['toplen']
 
 intra_coherence_params = {
     "window": 10, "threshold": 0.02, "focon_threshold": 5, "cosine_num_top_tokens": 10, "num_top_tokens": 10
 }
 
 num_passes_list = [1, 2, 3]
+num_passes_list = [1, ]
 
 num_top_tokens = 10
 
@@ -126,6 +128,7 @@ def randomize_model(restart_num, model):
     random_init = np.random.random_sample(phi_numpy_matrix.shape)
     random_init /= np.sum(random_init, axis=0)
     np.copyto(phi_numpy_matrix, random_init)
+    return topic_model_data, phi_numpy_matrix
     
 t0 = time.time()
 
@@ -133,7 +136,7 @@ indent = '    '
 indent_number = 0
 data_storage = ResultStorage(coh_names, domain_path=domain_path)
 for restart_num in range(num_of_restarts):
-    randomize_model(restart_num, model)
+    topic_model_data, phi_numpy_matrix = randomize_model(restart_num, model)
     # range of models with different segmentation qualities
     num_passes_last = 0
     for num_passes_total in num_passes_list:
@@ -141,6 +144,12 @@ for restart_num in range(num_of_restarts):
         print_status(t0, indent_number, "teaching model at iter {}".format(num_passes_total))
         indent_number += 1
     
+        #model.remove_theta()
+        #model.transform(batch_vectorizer=batch_vectorizer)
+        #for model_description in model.info.model:
+        #    print(model_description)
+        #print(np.sum(phi_numpy_matrix))
+        #print('fit_offline: {} {}'.format(batch_vectorizer, num_passes_total-num_passes_last))
         model.fit_offline(batch_vectorizer=batch_vectorizer,
             num_collection_passes=num_passes_total-num_passes_last
         )
