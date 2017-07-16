@@ -64,8 +64,7 @@ def create_model_with_background(dictionary, num_tokens, num_document_passes):
 coh_names = ['newman', 'mimno', 
              'semantic', 'toplen', 'focon']
 
-#coh_names = ['newman', 'mimno', 'toplen']
-coh_names = ['toplen']
+coh_names = ['newman', 'mimno', 'toplen']
 
 intra_coherence_params = {
     "window": 10, "threshold": 0.02, "focon_threshold": 5, "cosine_num_top_tokens": 10, "num_top_tokens": 10
@@ -99,9 +98,6 @@ if not os.path.isfile(dict_path):
     dictionary.save(dictionary_path=dict_path)
 
 dictionary.load(dictionary_path=dict_path)
-
-
-#dictionary.filter(min_df=2, max_df_rate=0.4)
 
 N = 1
 # model
@@ -144,12 +140,6 @@ for restart_num in range(num_of_restarts):
         print_status(t0, indent_number, "teaching model at iter {}".format(num_passes_total))
         indent_number += 1
     
-        #model.remove_theta()
-        #model.transform(batch_vectorizer=batch_vectorizer)
-        #for model_description in model.info.model:
-        #    print(model_description)
-        #print(np.sum(phi_numpy_matrix))
-        #print('fit_offline: {} {}'.format(batch_vectorizer, num_passes_total-num_passes_last))
         model.fit_offline(batch_vectorizer=batch_vectorizer,
             num_collection_passes=num_passes_total-num_passes_last
         )
@@ -167,7 +157,6 @@ for restart_num in range(num_of_restarts):
             print_status(t0, indent_number, "segmentation evaluation")
             recorder.evaluate_segmentation_quality()
 
-            #print_status(t0, indent_number, "current parametres: window: {}, threshold: {}".format(window, threshold))
             indent_number += 1
             
         indent_number -= 1
