@@ -43,8 +43,8 @@ def coh_toplen(params, topics, f,
         
         for j, word in enumerate(data):
             
-            if (word not in known_words):
-                continue
+            #if (word not in known_words):
+            #    continue
                 
             p_tdw_list = doc_ptdw[j]
             pos_topic_words[np.argmax(p_tdw_list)][j] = word
@@ -101,9 +101,8 @@ def coh_toplen(params, topics, f,
         
 def distance_L2(wi, wj):
     return norm(np.subtract(wi, wj))
-
-            
-def coh_semantic(params, topics, files, files_path,
+              
+def coh_semantic(params, topics, f,
                  phi_val, phi_cols, phi_rows,
                  theta_val, theta_cols, theta_rows):
     
@@ -111,24 +110,23 @@ def coh_semantic(params, topics, files, files_path,
     window = params["window"]
     means = [0 for i in range(len(topics))]
     N_list = [0 for i in range(len(topics))] # pairs examined
-    for f in files:
-        if get_docnum(f) not in theta_cols:
+    for line in f:
+        doc_num, data = read_plaintext(line)
+        if (len(data) < window):
             continue
+            
         # positions of topic-related words in the document
         pos_topic_words = [{} for topic in topics]
     
-        data, doc_ptdw = calc_doc_ptdw(
-            f=f, topics=topics, known_words=known_words,
+        doc_ptdw = calc_doc_ptdw(data, doc_num, 
             phi_val=phi_val, phi_rows=phi_rows,
             theta_val=theta_val, theta_cols=theta_cols
         )
         
-        if (len(data) < window):
-            continue
-        
-        for i in range(0, len(data)):
-            word = data[i]
-                
+        for i, word in enumerate(data):
+            #if (word not in known_words):
+            #    print ([word])
+            #    continue
             p_tdw_list = doc_ptdw[i]
             pos_topic_words[np.argmax(p_tdw_list)][i] = word
         
@@ -145,6 +143,7 @@ def coh_semantic(params, topics, files, files_path,
 
                 for j in range(i+1, min(i+window, len(pos_list[l]))):
                     pos_j = pos_list[l][j]
+                    #print (pos_topic_words[l][pos_j])
                     vec2 = phi_val[phi_rows.index(pos_topic_words[l][pos_j])]
 
                     means[l] += distance_L2(vec1, vec2)
@@ -161,7 +160,7 @@ def coh_semantic(params, topics, files, files_path,
     return {'means': res[np.argsort(res)[:-1]], 'medians': np.full(res.shape, np.nan)}
 
     
-def coh_focon(params, topics, files, files_path,
+def coh_focon(params, topics, f,
               phi_val, phi_cols, phi_rows,
               theta_val, theta_cols, theta_rows):
 
@@ -180,13 +179,10 @@ def coh_focon(params, topics, files, files_path,
     '''
     backgrnd = -1
     cur_threshold = 0
-        
-    for f in files:       
-        if get_docnum(f) not in theta_cols:
-            continue
-
-        data, doc_ptdw = calc_doc_ptdw(
-            f=f, topics=topics, known_words=known_words,
+    for line in f:
+        doc_num, data = read_plaintext(line)
+    
+        doc_ptdw = calc_doc_ptdw(data, doc_num, 
             phi_val=phi_val, phi_rows=phi_rows,
             theta_val=theta_val, theta_cols=theta_cols
         )

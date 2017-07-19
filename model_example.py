@@ -64,14 +64,14 @@ def create_model_with_background(dictionary, num_tokens, num_document_passes):
 coh_names = ['newman', 'mimno', 
              'semantic', 'toplen', 'focon']
 
-coh_names = ['newman', 'mimno', 'toplen']
+#coh_names = ['newman', 'mimno', 'toplen']
 
 intra_coherence_params = {
     "window": 10, "threshold": 0.02, "focon_threshold": 5, "cosine_num_top_tokens": 10, "num_top_tokens": 10
 }
 
-num_passes_list = [1, 2, 3]
-num_passes_list = [1, ]
+num_passes_list = [1, 2, 3, 4]
+num_passes_list = [1, 2]
 
 num_top_tokens = 10
 
@@ -162,5 +162,5 @@ for restart_num in range(num_of_restarts):
         indent_number -= 1
     
     print(data_storage.segm_quality["soft"].items())
-    #data_storage.data_results_save(file_name=something)
+    data_storage.data_results_save()
     

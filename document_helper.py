@@ -36,7 +36,7 @@ regex = re.compile(u'[%s]' % re.escape('.')) # to use regex.sub('', s) further
 def read_plaintext(line):
     modals = line.split("|")
     doc_num = int(modals[0].strip()) - 1
-    data = modals[1].split(" ")[1:]
+    data = modals[1].strip().split(" ")[1:]
     return doc_num, data
     
 def read_plaintext_and_labels(line):
