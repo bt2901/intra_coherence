@@ -4,8 +4,8 @@ import copy
 import traceback
 
 import numpy as np
-
-import codecs
+from scipy import stats 
+import codecs, os
 from collections import defaultdict
 
 from document_helper import files_total, data_results_save
@@ -35,20 +35,20 @@ class ResultStorage(object):
         self.segm_modes = ["soft", "harsh"]
         
         # TODO: model_id -> (measure_id -> val) 
-        self.segm_quality = {s: dict() for s in self.segm_modes}
+        self.segm_quality = defaultdict(dict)
         # TODO: model_id -> (measure_id -> val) 
-        self.coherences = {s: defaultdict(dict) for s in self.coh_names}
-
+        self.coherences = defaultdict(lambda: defaultdict(dict))
+        
     def save_segm(self, model_id, segm_quality_tmp):
         for s in self.segm_modes:
-            self.segm_quality[s][model_id] = (
+            self.segm_quality[model_id][s] = (
                           np.mean(segm_quality_tmp[s])
             )
 
     def save_coh(self, model_id, coherences_tmp):
         for name in self.coh_names:
             for mode in coherences_tmp[name]:
-                self.coherences[name][mode][model_id] = np.mean(coherences_tmp[name][mode])
+                self.coherences[model_id][name][mode] = np.mean(coherences_tmp[name][mode])
 
     def data_results_save(self):
         pars_segm = self.segm_quality
@@ -56,25 +56,18 @@ class ResultStorage(object):
         if (len(pars_segm) != len(pars_coh)):
             print(pars_segm.keys())
             print(pars_coh.keys())
-            print(pars_segm["soft"].keys())
-            print(pars_coh["mimno"].keys())
             raise ValueError('Different lengths of x- and y- arrays ({} and {})'.format(len(pars_segm), len(pars_coh)))
-            #print('Different lengths of x- and y- arrays ({} and {})'.format(len(pars_segm), len(pars_coh)))
-        #print(pars_segm)
-        #print(pars_coh)
 
-        coh_names = ['newman', 'mimno', 'cosine', 'semantic', 'toplen']
+        coh_names = ['newman', 'mimno', 'semantic', 'toplen']
         averaging_types = ['mean-of-means', 'mean-of-medians',
                            'median-of-means', 'median-of-medians']
         corrs = {prs: 'prs', spr: 'spr'}
         
         rows = []
         data = ''
-        
-        for pair in pars_segm:
-            #window, threshold = pair[0], pair[1]
-            window, threshold = None, None
-            rows += [['window={0}, threshold={1}'.format(window, threshold)]]
+        '''
+        for model_id in pars_segm:
+            rows += [[model_id]]
 
             for segm_type in ['soft', 'harsh']:
                 rows += [[segm_type]]
@@ -100,8 +93,8 @@ class ResultStorage(object):
                     for coh in coh_names:
                         if (coh == 'semantic'):
                             for av_type in ['mean-of-means', 'median-of-means']:
-                                x = pars_segm[pair][segm_type]
-                                y = pars_coh[pair][coh][av_type]
+                                x = pars_segm[model_id][segm_type]
+                                y = pars_coh[model_id][coh][av_type]
                                 x_tmp = np.array([u for (u, v) in sorted(zip(x, y), key=lambda pair: pair[0])])
                                 y_tmp = np.array([v for (u, v) in sorted(zip(x, y), key=lambda pair: pair[0])])
                                 x = x_tmp
@@ -110,8 +103,8 @@ class ResultStorage(object):
                             continue
 
                         for av_type in averaging_types:
-                            x = pars_segm[pair][segm_type]
-                            y = pars_coh[pair][coh][av_type]
+                            x = pars_segm[model_id][segm_type]
+                            y = pars_coh[model_id][coh][av_type]
                             x_tmp = np.array([u for (u, v) in sorted(zip(x, y), key=lambda pair: pair[0])])
                             y_tmp = np.array([v for (u, v) in sorted(zip(x, y), key=lambda pair: pair[0])])
                             x = x_tmp
@@ -120,52 +113,31 @@ class ResultStorage(object):
 
                     rows += [row]
                     
-            rows += [['']]
+            rows += [['']]'''
             
-        for pair in pars_segm:
-            #window, threshold = pair[0], pair[1]
-            window, threshold = None, None
-            data += 'window={0}, threshold={1}\n'.format(window, threshold)
-
-            for segm_type in ['soft', 'harsh']:
-                data += segm_type + '\n'
-                
-                x = pars_segm[pair][segm_type]
-                x = sorted(x)
-                data = data_append(data, x)
-
+        for segm_type in ['soft', 'harsh']:
+            for av_type in averaging_types:
                 for coh in coh_names:
-                    if (coh == 'semantic'):
-                        data += 'SemantiC\n'
-                        for av_type in ['mean-of-means', 'median-of-means']:
-                            x = pars_segm[pair][segm_type]
-                            y = pars_coh[pair][coh][av_type]
-                            x_tmp = np.array([u for (u, v) in sorted(zip(x, y), key=lambda pair: pair[0])])
-                            y_tmp = np.array([v for (u, v) in sorted(zip(x, y), key=lambda pair: pair[0])])
-                            x = x_tmp
-                            y = y_tmp
-                            data = data_append(data, y)
+                    if (coh == "semantic" and "of-medians" in av_type):
                         continue
+                    x, y = [], []
+                    for model_id in pars_segm:
+                        coh_data, segm_data = pars_coh[model_id], pars_segm[model_id]
+                        x.append(coh_data[coh][av_type])
+                        y.append(segm_data[segm_type])
+                    print (spr(x, y))
 
-                    if (coh == 'toplen'):
-                        data += 'TopLen\n'
-                    else:
-                        data += coh[0].upper() + coh[1:] + '\n'
-
-                    for av_type in averaging_types:
-                        x = pars_segm[pair][segm_type]
-                        y = pars_coh[pair][coh][av_type]
-                        x_tmp = np.array([u for (u, v) in sorted(zip(x, y), key=lambda pair: pair[0])])
-                        y_tmp = np.array([v for (u, v) in sorted(zip(x, y), key=lambda pair: pair[0])])
-                        x = x_tmp
-                        y = y_tmp
-                        data = data_append(data, y)
-            
+                    data += segm_type + '\n'
+                    #data = data_append(data, x)
+                    #data = data_append(data, y)
+                    data += ";{};".format(spr(x, y))
+                    data += coh[0].upper() + coh[1:] + '\n'
+                    
             data += '\n'
         
         data = data.strip()
 
-        with open(os.path.join('results', 'results.csv'), 'a', newline='', encoding='utf-8') as csvfile:
+        with codecs.open(os.path.join('results', 'results.csv'), 'a', newline='', encoding='utf-8') as csvfile:
             csvwriter = csv.writer(csvfile,
                                    delimiter=',', quotechar='"',
                                    quoting=csv.QUOTE_MINIMAL)
@@ -186,10 +158,9 @@ class ResultStorage(object):
         data += 'pars_coh:\n{0}\n'.format(pars_coh)
         data = data.strip()
         
-        with open(os.path.join('results', 'data_raw.txt'), 'a', encoding='utf-8') as f:
+        with codecs.open(os.path.join('results', 'data_raw.txt'), 'a', encoding='utf-8') as f:
             f.write(data)
     
-        raise NotImplementedError
 
 
 functions_data = {name: {"func": func, "by_top_tokens": (name in coh_names_top_tokens)} for name, func in zip(coh_names, coh_funcs)}

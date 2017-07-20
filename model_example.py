@@ -161,6 +161,6 @@ for restart_num in range(num_of_restarts):
             
         indent_number -= 1
     
-    print(data_storage.segm_quality["soft"].items())
+    #print(data_storage.segm_quality.items())
     data_storage.data_results_save()
     
