@@ -62,7 +62,7 @@ def create_model_with_background(dictionary, num_tokens, num_document_passes):
 
 
 coh_names = ['newman', 'mimno', 
-             'semantic', 'toplen', 'focon']
+             'semantic', 'toplen', "focon"]
 
 #coh_names = ['newman', 'mimno', 'toplen']
 
@@ -70,8 +70,7 @@ intra_coherence_params = {
     "window": 10, "threshold": 0.02, "focon_threshold": 5, "cosine_num_top_tokens": 10, "num_top_tokens": 10
 }
 
-num_passes_list = [1, 2, 3, 4]
-num_passes_list = [1, 2]
+num_passes_list = range(1, 4)
 
 num_top_tokens = 10
 
@@ -106,7 +105,8 @@ model = create_model_with_background(dictionary=dictionary,
                      num_document_passes=N) 
 
 # number of cycles
-num_of_restarts = 2
+num_of_restarts = 5
+num_of_restarts = 1
 
 def print_status(t0, indent_number, what_is_happening):
     print('({0:>2d}:{1:>2d}){2} {3}'.format(
@@ -145,7 +145,7 @@ for restart_num in range(num_of_restarts):
         )
         num_passes_last = num_passes_total
 
-        model_id = str({"name": "PLSA", "restart_num": restart_num, "iter": num_passes_total})
+        model_id = " {} ".format({"name": "PLSA", "restart_num": restart_num, "iter": num_passes_total})
         with record_results(model=model, vw_file="vw_bimodal.txt", at=model_id, save_in=data_storage) as recorder:
             for coh_name in coh_names:
                 print_status(t0, indent_number, coh_name)
@@ -162,5 +162,5 @@ for restart_num in range(num_of_restarts):
         indent_number -= 1
     
     #print(data_storage.segm_quality.items())
-    data_storage.data_results_save()
+data_storage.data_results_save()
     

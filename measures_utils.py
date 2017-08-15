@@ -5,10 +5,13 @@ import traceback
 
 import numpy as np
 from scipy import stats 
-import codecs, os
+import codecs, os, io
+import csv
 from collections import defaultdict
 
-from document_helper import files_total, data_results_save
+import pandas as pd
+
+from document_helper import files_total
 from segmentation import segmentation_evaluation
 
 from coherences import coh_newman, coh_mimno #, #coh_cosine
@@ -33,11 +36,19 @@ class ResultStorage(object):
         self.domain_path = domain_path 
         self.coh_names = coh_names
         self.segm_modes = ["soft", "harsh"]
+        self.averaging_types = ['mean-of-means', 'mean-of-medians',
+                           'median-of-means', 'median-of-medians']
         
         # TODO: model_id -> (measure_id -> val) 
         self.segm_quality = defaultdict(dict)
         # TODO: model_id -> (measure_id -> val) 
         self.coherences = defaultdict(lambda: defaultdict(dict))
+        
+        data_model = {"model_id": [], ("segm", "soft"): [], ("segm", "harsh"): []}
+        for name in self.coh_names:
+            for mode in self.averaging_types:
+                data_model[(name, mode)] = []
+        self.measures = pd.DataFrame(data_model)
         
     def save_segm(self, model_id, segm_quality_tmp):
         for s in self.segm_modes:
@@ -49,117 +60,33 @@ class ResultStorage(object):
         for name in self.coh_names:
             for mode in coherences_tmp[name]:
                 self.coherences[model_id][name][mode] = np.mean(coherences_tmp[name][mode])
+    def save2df(self, model_id):
+        row = {"model_id": model_id}
+        for s in self.segm_modes:
+            row[("segm", s)] = self.segm_quality[model_id][s]
+        for name in self.coh_names:
+            for mode in self.averaging_types:
+                row[(name, mode)] = self.coherences[model_id][name].get(mode, float("nan"))
+        self.measures = self.measures.append(row, ignore_index=True)
+
+    
 
     def data_results_save(self):
         pars_segm = self.segm_quality
         pars_coh = self.coherences
+        
         if (len(pars_segm) != len(pars_coh)):
             print(pars_segm.keys())
             print(pars_coh.keys())
             raise ValueError('Different lengths of x- and y- arrays ({} and {})'.format(len(pars_segm), len(pars_coh)))
 
         coh_names = ['newman', 'mimno', 'semantic', 'toplen']
-        averaging_types = ['mean-of-means', 'mean-of-medians',
-                           'median-of-means', 'median-of-medians']
         corrs = {prs: 'prs', spr: 'spr'}
         
-        rows = []
-        data = ''
-        '''
-        for model_id in pars_segm:
-            rows += [[model_id]]
-
-            for segm_type in ['soft', 'harsh']:
-                rows += [[segm_type]]
-                rows += [[
-                    '',
-                    'Newman', '', '', '',
-                    'Mimno', '', '', '',
-                    'Cosine', '', '', '',
-                    'SemantiC', '',
-                    'TopLen', '', '', ''
-                ]]
-                rows += [[
-                    '',
-                    '1', '2', '3', '4',
-                    '1', '2', '3', '4',
-                    '1', '2', '3', '4',
-                    '1', '3',
-                    '1', '2', '3', '4'
-                ]]
-
-                for corr in corrs:
-                    row = [corrs[corr]]
-                    for coh in coh_names:
-                        if (coh == 'semantic'):
-                            for av_type in ['mean-of-means', 'median-of-means']:
-                                x = pars_segm[model_id][segm_type]
-                                y = pars_coh[model_id][coh][av_type]
-                                x_tmp = np.array([u for (u, v) in sorted(zip(x, y), key=lambda pair: pair[0])])
-                                y_tmp = np.array([v for (u, v) in sorted(zip(x, y), key=lambda pair: pair[0])])
-                                x = x_tmp
-                                y = y_tmp
-                                row += ["'{0:.2f}".format(corr(x, y))]
-                            continue
-
-                        for av_type in averaging_types:
-                            x = pars_segm[model_id][segm_type]
-                            y = pars_coh[model_id][coh][av_type]
-                            x_tmp = np.array([u for (u, v) in sorted(zip(x, y), key=lambda pair: pair[0])])
-                            y_tmp = np.array([v for (u, v) in sorted(zip(x, y), key=lambda pair: pair[0])])
-                            x = x_tmp
-                            y = y_tmp
-                            row += ["'{0:.2f}".format(corr(x, y))]
-
-                    rows += [row]
-                    
-            rows += [['']]'''
-            
-        for segm_type in ['soft', 'harsh']:
-            for av_type in averaging_types:
-                for coh in coh_names:
-                    if (coh == "semantic" and "of-medians" in av_type):
-                        continue
-                    x, y = [], []
-                    for model_id in pars_segm:
-                        coh_data, segm_data = pars_coh[model_id], pars_segm[model_id]
-                        x.append(coh_data[coh][av_type])
-                        y.append(segm_data[segm_type])
-                    print (spr(x, y))
-
-                    data += segm_type + '\n'
-                    #data = data_append(data, x)
-                    #data = data_append(data, y)
-                    data += ";{};".format(spr(x, y))
-                    data += coh[0].upper() + coh[1:] + '\n'
-                    
-            data += '\n'
+        corr_df = self.measures.corr("spearman").ix[(('segm', "soft"), ('segm', "harsh")), :-1]
+        self.measures.to_csv(os.path.join('results', 'measures.csv'), sep=";", encoding='utf-8')
+        corr_df.to_csv(os.path.join('results', 'corr.csv'), sep=";", encoding='utf-8')
         
-        data = data.strip()
-
-        with codecs.open(os.path.join('results', 'results.csv'), 'a', newline='', encoding='utf-8') as csvfile:
-            csvwriter = csv.writer(csvfile,
-                                   delimiter=',', quotechar='"',
-                                   quoting=csv.QUOTE_MINIMAL)
-            csvwriter.writerows(rows)
-        
-        with open(os.path.join('results', 'data.txt'), 'a', encoding='utf-8') as f:
-            f.write(data)
-        
-        data = ''
-        data += 'window, threshold:\n'
-        for pair in pars_segm:
-            data += '({0}, {1}), '.format(pair[0], pair[1])
-        data = data[:-2]
-        data += '\n\n'
-        
-        data += 'pars_segm:\n{0}\n'.format(pars_segm)
-        data += '\n\n\n'
-        data += 'pars_coh:\n{0}\n'.format(pars_coh)
-        data = data.strip()
-        
-        with codecs.open(os.path.join('results', 'data_raw.txt'), 'a', encoding='utf-8') as f:
-            f.write(data)
     
 
 
@@ -187,6 +114,7 @@ class record_results(object):
             traceback.print_tb(tr)
         self.save_in.save_segm(self.at, self._segm_quality_tmp)
         self.save_in.save_coh(self.at, self._coherences_tmp)
+        self.save_in.save2df(self.at)
 
     def evaluate(self, coh_name, coh_params):
         #raise NotImplementedError
@@ -238,8 +166,6 @@ class record_results(object):
         for cn in coh_names:
             for mode in ['mean-of-means', 'mean-of-medians', 'median-of-means', 'median-of-medians']:
                 coherences_carcass[cn][mode] = np.array([])
-        if "focon" in coh_names:
-            coherences_carcass["focon"] = {'res': np.array([])}
                 
         return coherences_carcass
 
@@ -248,7 +174,7 @@ class record_results(object):
     
     def _append_all_measures(self, coherences_tmp, coh_name, coh_list):
         if (coh_name == 'focon'):
-            self._measures_append(coherences_tmp, coh_name, 'res', coh_list)
+            self._measures_append(coherences_tmp, coh_name, 'mean-of-means', coh_list)
             return
         
         self._measures_append(coherences_tmp, coh_name, 'mean-of-means', np.mean(coh_list['means']))
