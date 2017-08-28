@@ -16,7 +16,8 @@ from document_helper import calc_doc_ptdw, read_plaintext
 from segmentation import segmentation_evaluation
 
 from coherences import coh_newman, coh_mimno #, #coh_cosine
-from intra_coherence import coh_semantic, coh_toplen, coh_focon, coh_toplen_calculator
+from intra_coherence import coh_toplen_calculator, coh_focon_calculator, coh_semantic_calculator
+from intra_coherence_legacy import coh_semantic, coh_toplen, coh_focon
     
 
 def prs(l1, l2):
@@ -92,6 +93,10 @@ class ResultStorage(object):
 
 
 functions_data = {name: {"func": func, "by_top_tokens": (name in coh_names_top_tokens)} for name, func in zip(coh_names, coh_funcs)}
+functions_data["focon"]["calc"] = coh_focon_calculator
+functions_data["toplen"]["calc"] = coh_toplen_calculator
+functions_data["semantic"]["calc"] = coh_semantic_calculator
+
 class record_results(object):
     def __init__(self, model, vw_file, at, save_in):
         self.save_in = save_in
@@ -120,6 +125,8 @@ class record_results(object):
     def evaluate(self, coh_name, coh_params):
         #raise NotImplementedError
         coh_func = functions_data[coh_name]["func"]
+        coh_calculator = functions_data[coh_name].get("calc", None)
+
         with codecs.open(self.vw_file, "r", encoding="utf8") as f:
             if (coh_name in coh_names_top_tokens):
                 if len(self.model.score_tracker['TopTokensScore'].last_tokens) == 0:
@@ -135,30 +142,23 @@ class record_results(object):
                         file=f
                     )
             else:
-                if coh_name == "toplen":
-                    m = coh_toplen_calculator(coh_params, self.model.topic_names)
-                    for line in f:
-                        doc_num, data = read_plaintext(line)
-                        
-                        doc_ptdw = calc_doc_ptdw(data, doc_num, 
-                            phi_val=self.phi.values, phi_rows=self.phi_rows,
-                            theta_val=self.theta.values, theta_cols=self.theta_cols
-                        )
-                        m.update(doc_num, data, doc_ptdw, self.phi.values, self.phi_rows)
-                    coh_list = m.output()
-                else:
-                    coh_list = coh_func(
-                        coh_params, self.model.topic_names, f, 
-                        phi_val=self.phi.values, phi_cols=self.phi_cols, phi_rows=self.phi_rows,
-                        theta_val=self.theta.values, theta_cols=self.theta_cols, theta_rows=self.theta_rows,
+                m = coh_calculator(coh_params, self.model.topic_names)
+                for line in f:
+                    doc_num, data = read_plaintext(line)
+                    
+                    doc_ptdw = calc_doc_ptdw(data, doc_num, 
+                        phi_val=self.phi.values, phi_rows=self.phi_rows,
+                        theta_val=self.theta.values, theta_cols=self.theta_cols
                     )
+                    m.update(doc_num, data, doc_ptdw, self.phi.values, self.phi_rows)
+                coh_list = m.output()
 
         self._append_all_measures(self._coherences_tmp, coh_name, coh_list)
         
     def unit_test(self, coh_name, coh_params):
         coh_func = functions_data[coh_name]["func"]
-        if coh_name == "toplen":
-            m = coh_toplen_calculator(coh_params, self.model.topic_names)
+        coh_calculator = functions_data[coh_name]["calc"]
+        m = coh_calculator(coh_params, self.model.topic_names)
         with codecs.open(self.vw_file, "r", encoding="utf8") as f:
             for line in f:
                 doc_num, data = read_plaintext(line)
