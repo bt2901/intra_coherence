@@ -67,7 +67,8 @@ coh_names = ['newman', 'mimno',
 #coh_names = ['newman', 'mimno', 'toplen']
 
 intra_coherence_params = {
-    "window": 10, "threshold": 0.02, "focon_threshold": 5, "cosine_num_top_tokens": 10, "num_top_tokens": 10
+    "window": 10, "threshold": 0.02, "focon_threshold": 5, "cosine_num_top_tokens": 10, "num_top_tokens": 10,
+    "general_penalty": 0.005
 }
 
 num_passes_list = range(1, 20)

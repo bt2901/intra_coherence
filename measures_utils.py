@@ -12,10 +12,11 @@ from collections import defaultdict
 import pandas as pd
 
 from document_helper import files_total
+from document_helper import calc_doc_ptdw, read_plaintext
 from segmentation import segmentation_evaluation
 
 from coherences import coh_newman, coh_mimno #, #coh_cosine
-from intra_coherence import coh_semantic, coh_toplen, coh_focon
+from intra_coherence import coh_semantic, coh_toplen, coh_focon, coh_toplen_calculator
     
 
 def prs(l1, l2):
@@ -134,26 +135,30 @@ class record_results(object):
                         file=f
                     )
             else:
-                if coh_name == "coh_toplen":
-                    m = coh_toplen_calculator()
+                if coh_name == "toplen":
+                    m = coh_toplen_calculator(coh_params, self.model.topic_names)
                     for line in f:
                         doc_num, data = read_plaintext(line)
                         
                         doc_ptdw = calc_doc_ptdw(data, doc_num, 
-                            phi_val=phi_val, phi_rows=phi_rows,
-                            theta_val=theta_val, theta_cols=theta_cols
+                            phi_val=self.phi.values, phi_rows=self.phi_rows,
+                            theta_val=self.theta.values, theta_cols=self.theta_cols
                         )
-                        m.update(coh_params, self.model.topic_names, doc_num, data, doc_ptdw, phi_val, phi_rows)
+                        m.update(doc_num, data, doc_ptdw, self.phi.values, self.phi_rows)
                     coh_list = m.output()
-                    coh_list2 = coh_func(
-                        coh_params, self.model.topic_names, f, 
-                        phi_val=self.phi.values, phi_cols=self.phi_cols, phi_rows=self.phi_rows,
-                        theta_val=self.theta.values, theta_cols=self.theta_cols, theta_rows=self.theta_rows,
-                    )
-                    if coh_list2 == coh_list:
+                    with codecs.open(self.vw_file, "r", encoding="utf8") as f2:
+                        coh_list2 = coh_func(
+                            coh_params, self.model.topic_names, f2, 
+                            phi_val=self.phi.values, phi_cols=self.phi_cols, phi_rows=self.phi_rows,
+                            theta_val=self.theta.values, theta_cols=self.theta_cols, theta_rows=self.theta_rows,
+                        )
+                    are_equal = np.allclose(coh_list2['means'], coh_list['means'], equal_nan=True) and np.allclose(coh_list2['medians'], coh_list['medians'], equal_nan=True)
+                    if are_equal:
                         print("OK")
                     else:
                         print("ERROR")
+                        print (coh_list)
+                        print (coh_list2)
                     
                 else:
                     coh_list = coh_func(

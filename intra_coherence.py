@@ -276,12 +276,14 @@ def coh_focon(params, topics, f,
 
 
 class coh_toplen_calculator(object):
-    def __init__(self):
+    def __init__(self, params, topics):
         # lists of lists of topics' lengths
         self.top_lens = [[] for i in range(len(topics))]
+        self.topics = topics
+        self.params = params
         
-    def update(self, params, topics, doc_num, data, doc_ptdw, phi_val, phi_rows):
-        local_top_lens = self.measure(params, topics, doc_num, data, doc_ptdw, phi_val, phi_rows)
+    def update(self, doc_num, data, doc_ptdw, phi_val, phi_rows):
+        local_top_lens = self.measure(self.params, self.topics, doc_num, data, doc_ptdw, phi_val, phi_rows)
         for i, topic_name in enumerate(self.top_lens):
             self.top_lens[i] += local_top_lens[i]
             
