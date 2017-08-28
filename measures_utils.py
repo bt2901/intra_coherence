@@ -146,20 +146,6 @@ class record_results(object):
                         )
                         m.update(doc_num, data, doc_ptdw, self.phi.values, self.phi_rows)
                     coh_list = m.output()
-                    with codecs.open(self.vw_file, "r", encoding="utf8") as f2:
-                        coh_list2 = coh_func(
-                            coh_params, self.model.topic_names, f2, 
-                            phi_val=self.phi.values, phi_cols=self.phi_cols, phi_rows=self.phi_rows,
-                            theta_val=self.theta.values, theta_cols=self.theta_cols, theta_rows=self.theta_rows,
-                        )
-                    are_equal = np.allclose(coh_list2['means'], coh_list['means'], equal_nan=True) and np.allclose(coh_list2['medians'], coh_list['medians'], equal_nan=True)
-                    if are_equal:
-                        print("OK")
-                    else:
-                        print("ERROR")
-                        print (coh_list)
-                        print (coh_list2)
-                    
                 else:
                     coh_list = coh_func(
                         coh_params, self.model.topic_names, f, 
@@ -168,6 +154,36 @@ class record_results(object):
                     )
 
         self._append_all_measures(self._coherences_tmp, coh_name, coh_list)
+        
+    def unit_test(self, coh_name, coh_params):
+        coh_func = functions_data[coh_name]["func"]
+        if coh_name == "toplen":
+            m = coh_toplen_calculator(coh_params, self.model.topic_names)
+        with codecs.open(self.vw_file, "r", encoding="utf8") as f:
+            for line in f:
+                doc_num, data = read_plaintext(line)
+                
+                doc_ptdw = calc_doc_ptdw(data, doc_num, 
+                    phi_val=self.phi.values, phi_rows=self.phi_rows,
+                    theta_val=self.theta.values, theta_cols=self.theta_cols
+                )
+                m.update(doc_num, data, doc_ptdw, self.phi.values, self.phi_rows)
+            coh_list = m.output()
+        with codecs.open(self.vw_file, "r", encoding="utf8") as f2:
+            coh_list2 = coh_func(
+                coh_params, self.model.topic_names, f2, 
+                phi_val=self.phi.values, phi_cols=self.phi_cols, phi_rows=self.phi_rows,
+                theta_val=self.theta.values, theta_cols=self.theta_cols, theta_rows=self.theta_rows,
+            )
+        are_equal = np.allclose(coh_list2['means'], coh_list['means'], equal_nan=True) and np.allclose(coh_list2['medians'], coh_list['medians'], equal_nan=True)
+        if are_equal:
+            print("OK")
+        else:
+            print("ERROR")
+            print (coh_list)
+            print (coh_list2)
+            raise NotImplementedError
+                        
     def evaluate_segmentation_quality(self):
         with codecs.open(self.vw_file, "r", encoding="utf8") as f:
             cur_segm_eval, indexes = (
