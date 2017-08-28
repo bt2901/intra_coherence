@@ -134,11 +134,33 @@ class record_results(object):
                         file=f
                     )
             else:
-                coh_list = coh_func(
-                    coh_params, self.model.topic_names, f, 
-                    phi_val=self.phi.values, phi_cols=self.phi_cols, phi_rows=self.phi_rows,
-                    theta_val=self.theta.values, theta_cols=self.theta_cols, theta_rows=self.theta_rows,
-                )
+                if coh_name == "coh_toplen":
+                    m = coh_toplen_calculator()
+                    for line in f:
+                        doc_num, data = read_plaintext(line)
+                        
+                        doc_ptdw = calc_doc_ptdw(data, doc_num, 
+                            phi_val=phi_val, phi_rows=phi_rows,
+                            theta_val=theta_val, theta_cols=theta_cols
+                        )
+                        m.update(coh_params, self.model.topic_names, doc_num, data, doc_ptdw, phi_val, phi_rows)
+                    coh_list = m.output()
+                    coh_list2 = coh_func(
+                        coh_params, self.model.topic_names, f, 
+                        phi_val=self.phi.values, phi_cols=self.phi_cols, phi_rows=self.phi_rows,
+                        theta_val=self.theta.values, theta_cols=self.theta_cols, theta_rows=self.theta_rows,
+                    )
+                    if coh_list2 == coh_list:
+                        print("OK")
+                    else:
+                        print("ERROR")
+                    
+                else:
+                    coh_list = coh_func(
+                        coh_params, self.model.topic_names, f, 
+                        phi_val=self.phi.values, phi_cols=self.phi_cols, phi_rows=self.phi_rows,
+                        theta_val=self.theta.values, theta_cols=self.theta_cols, theta_rows=self.theta_rows,
+                    )
 
         self._append_all_measures(self._coherences_tmp, coh_name, coh_list)
     def evaluate_segmentation_quality(self):

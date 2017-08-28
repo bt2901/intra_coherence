@@ -71,6 +71,7 @@ intra_coherence_params = {
 }
 
 num_passes_list = range(1, 20)
+num_passes_list = range(1, 5)
 
 num_top_tokens = 10
 
@@ -105,7 +106,7 @@ model = create_model_with_background(dictionary=dictionary,
                      num_document_passes=N) 
 
 # number of cycles
-num_of_restarts = 5
+num_of_restarts = 1
 
 def print_status(t0, indent_number, what_is_happening):
     print('({0:>2d}:{1:>2d}){2} {3}'.format(
