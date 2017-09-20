@@ -57,6 +57,8 @@ class coh_toplen_calculator(object):
         # positions of topic-related words in the document (and these words as well)
         # (pos_topic_words[topic_num][f][idx] = word)
         pos_topic_words = [{} for topic in topics]
+        t0 = time.time()
+        time_pos_words = 0
         
         for j, word in enumerate(data):
                             
@@ -64,6 +66,10 @@ class coh_toplen_calculator(object):
             pos_topic_words[np.argmax(p_tdw_list)][j] = word
         
         pos_list = [sorted(pos_topic_words[l]) for l in range(len(topics))]
+        time_pos_words += time.time() - t0
+        #print ("time_pos_words: {} sec".format(time_pos_words))
+
+        time_while = 0
             
         for l in range(len(topics)):
             if (len(pos_list[l]) == 0):
@@ -76,6 +82,7 @@ class coh_toplen_calculator(object):
                 idx = i # first word is also taking part in calculations
                 cur_sum = threshold
 
+                t0 = time.time()
                 while (cur_sum >= 0 and idx < len(data)):
                     word = data[idx]
                     
@@ -98,8 +105,10 @@ class coh_toplen_calculator(object):
 
                     idx += 1
 
+                time_while += time.time() - t0
                 top_lens[l].append(idx - i)
                 j += 1
+        #print ("time_while: {} sec".format(time_while))
         return top_lens
 
 def coh_semantic_inner(params, topics, doc_num, data, doc_ptdw,
@@ -248,4 +257,3 @@ class coh_focon_calculator(object):
             
             vec1 = vec2
         return -res
-        

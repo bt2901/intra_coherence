@@ -18,7 +18,12 @@ from segmentation import segmentation_evaluation
 from coherences import coh_newman, coh_mimno #, #coh_cosine
 from intra_coherence import coh_toplen_calculator, coh_focon_calculator, coh_semantic_calculator
 from intra_coherence_legacy import coh_semantic, coh_toplen, coh_focon
-    
+
+import time
+
+
+debug = True    
+debug = False    
 
 def prs(l1, l2):
     return stats.pearsonr(l1, l2)[0]
@@ -129,8 +134,9 @@ class record_results(object):
 
         with codecs.open(self.vw_file, "r", encoding="utf8") as f:
             if (coh_name in coh_names_top_tokens):
-                if len(self.model.score_tracker['TopTokensScore'].last_tokens) == 0:
-                    print("WARNING: top tokens is empty")
+                if len(self.model.score_tracker['TopTokensScore'].last_tokens) == 0 or debug:
+                    if not debug:
+                        print("WARNING: top tokens is empty")
                     res_shape = (len(self.model.topic_names) - 1,)
                     coh_list = {'means': np.full(res_shape, np.nan),
                             'medians': np.full(res_shape, np.nan)}
@@ -142,16 +148,29 @@ class record_results(object):
                         file=f
                     )
             else:
+                time_ptdw = 0
+                time_coh = 0
+                
                 m = coh_calculator(coh_params, self.model.topic_names)
-                for line in f:
+                for i, line in enumerate(f):
+                    if debug:
+                        if i % 100:
+                            continue
                     doc_num, data = read_plaintext(line)
                     
+                    t0 = time.time()
                     doc_ptdw = calc_doc_ptdw(data, doc_num, 
                         phi_val=self.phi.values, phi_rows=self.phi_rows,
                         theta_val=self.theta.values, theta_cols=self.theta_cols
                     )
+                    time_ptdw += time.time() - t0
+
+                    t0 = time.time()
                     m.update(doc_num, data, doc_ptdw, self.phi.values, self.phi_rows)
+                    time_coh += time.time() - t0
+
                 coh_list = m.output()
+                print ("timings: p_tdw {} seconds, coh {} seconds".format(time_ptdw, time_coh))
 
         self._append_all_measures(self._coherences_tmp, coh_name, coh_list)
         

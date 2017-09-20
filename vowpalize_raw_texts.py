@@ -77,4 +77,5 @@ def vowpalize(dir_name):
             with codecs.open("vw_{}.txt".format("labels"), "a", encoding="utf8") as out:
                 out.write( u"{} |labels {} \n".format(doc_id, original_labels) )
 
-vowpalize("PNaukaMixedLemmatized_short")
+vowpalize("PNaukaMixedLemmatized_full")
+#vowpalize("PNaukaMixedLemmatized_short")

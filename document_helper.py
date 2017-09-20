@@ -20,11 +20,13 @@ from itertools import groupby
 import scipy as sp
 
 
+is_full = True
 
 pn_folder = r''
-vw_folder = 'pn_mixed_lemmatized'
+vw_folder = 'pn_mixed_lemmatized' + ("_full" if is_full else "")
 
-domain_folder = 'PNaukaMixedLemmatized_short'
+domain_folder = 'PNaukaMixedLemmatized' + ('_full' if is_full else '_short')
+
 domain_path = os.path.join(pn_folder, domain_folder)
 files_total = os.listdir(domain_path)
 #files_total = sorted(files_total, key=my_sort_func)
@@ -72,9 +74,6 @@ def ptdw_vectorized(words, phi_val, phi_rows, local_theta):
             print (clean)
     '''
     
-    #print (rank)
-    
-    #print (sort)
     idx_word_array = sort[rank]
     phi_list = phi_val[idx_word_array, :]
     

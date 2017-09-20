@@ -72,7 +72,7 @@ intra_coherence_params = {
 }
 
 num_passes_list = range(1, 20)
-num_passes_list = range(1, 5)
+num_passes_list = range(1, 10)
 
 num_top_tokens = 10
 
@@ -90,6 +90,7 @@ else:
     batch_vectorizer = artm.BatchVectorizer(data_path=os.path.join(pn_folder, vw_folder),
                                             data_format='batches')
 
+vw_file = os.path.join(pn_folder, vw_folder, 'vw_bimodal.txt')
 dictionary = artm.Dictionary()
 
 dict_path = os.path.join(pn_folder, vw_folder, 'dict.dict')
@@ -147,7 +148,7 @@ for restart_num in range(num_of_restarts):
         num_passes_last = num_passes_total
 
         model_id = " {} ".format({"name": "PLSA", "restart_num": restart_num, "iter": num_passes_total})
-        with record_results(model=model, vw_file="vw_bimodal.txt", at=model_id, save_in=data_storage) as recorder:
+        with record_results(model=model, vw_file=vw_file, at=model_id, save_in=data_storage) as recorder:
             for coh_name in coh_names:
                 print_status(t0, indent_number, coh_name)
                 recorder.evaluate(coh_name, intra_coherence_params)
