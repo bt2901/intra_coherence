@@ -2,6 +2,7 @@
 from __future__ import print_function, division
 from munkres import Munkres # for Hungarian algorithm
 
+import pandas as pd
 
 import codecs, re
 import sys, os, glob
@@ -29,10 +30,25 @@ class coh_toplen_calculator(object):
         self.topics = topics
         self.params = params
         
+        model = {"lenghts_topic_{}".format(t): [] for t, n in enumerate(topics)}
+        model["doc_len"] = []
+        self.details = pd.DataFrame(model)
+        self.details.index.name = "doc_num"
+        
     def update(self, doc_num, data, doc_ptdw, phi_val, phi_rows):
         local_top_lens = self.measure(self.params, self.topics, doc_num, data, doc_ptdw, phi_val, phi_rows)
+        print(".", sep="", end="")
+        
+        #s = pd.Series({"lengths_topic_{}".format(t): local_top_lens[t] for t, n in enumerate(self.topics)})
+        s = pd.Series({"lengths_topic_{}".format(t): len(local_top_lens[t]) for t, n in enumerate(self.topics)})
+        s["doc_len"] = len(data)
+        self.details.loc[doc_num] = s 
+        
         for i, topic_name in enumerate(self.top_lens):
             self.top_lens[i] += local_top_lens[i]
+            
+    def output_details(self, filename):
+        self.details.to_csv(filename, sep=";", encoding='utf-8')
             
     def output(self):
         # if some topics didn't appear in the documents
@@ -42,6 +58,10 @@ class coh_toplen_calculator(object):
         
         means = np.array([np.mean(np.array(p)) for p in self.top_lens])
         medians = np.array([np.median(np.array(p)) for p in self.top_lens])
+        
+        #details = pd.Series(local_top_lens)
+        #details.name = doc_num
+
         # trow away max value
         return {'means': means[np.argsort(means)[:-1]],
                 'medians': medians[np.argsort(medians)[:-1]]}
@@ -71,7 +91,8 @@ class coh_toplen_calculator(object):
 
         time_while = 0
             
-        for l in range(len(topics)):
+        for l in range(3):
+        #for l in range(len(topics)):
             if (len(pos_list[l]) == 0):
                 continue
                 
@@ -176,12 +197,22 @@ class coh_semantic_calculator(object):
 
         self.topics = topics
         self.params = params
+        model = {"cost_topic_{}".format(t): [] for t, n in enumerate(topics)}
+        model["n_pairs"] = []
+        self.details = pd.DataFrame(model)
+        self.details.index.name = "doc_num"
         
     def update(self, doc_num, data, doc_ptdw, phi_val, phi_rows):
         local_means, local_N_list = self.measure(self.params, self.topics, doc_num, data, doc_ptdw, phi_val, phi_rows)
         self.means += local_means
         self.N_list += local_N_list
+        
+        s = pd.Series({"cost_topic_{}".format(t): local_means[t] for t, n in enumerate(self.topics)})
+        s["n_pairs"] = local_N_list
+        self.details.loc[doc_num] = s 
     
+    def output_details(self, filename):
+        self.details.to_csv(filename, sep=";", encoding='utf-8')
             
     def output(self):
         res = np.divide(-1 * self.means, (self.N_list + 0.001))
@@ -203,12 +234,23 @@ class coh_focon_calculator(object):
         # lists of lists of topics' lengths
         self.res = 0.0
 
+        self.details = pd.DataFrame({"cost": []})
+        self.details.index.name = "doc_num"
+
         self.topics = topics
         self.params = params
         
     def update(self, doc_num, data, doc_ptdw, phi_val, phi_rows):
-        self.res += self.measure(self.params, self.topics, doc_num, data, doc_ptdw, phi_val, phi_rows)    
-            
+
+        local_res = self.measure(self.params, self.topics, doc_num, data, doc_ptdw, phi_val, phi_rows)
+        s = pd.Series({"cost": local_res})
+        
+        self.details.loc[doc_num] = s
+        self.res += local_res
+
+    def output_details(self, filename):
+        self.details.to_csv(filename, sep=";", encoding='utf-8')
+        
     def output(self):
         return self.res
     
@@ -221,7 +263,7 @@ class coh_focon_calculator(object):
 
         cur_threshold = 0
         backgrnd = -1
-
+        '''
         for j, word in enumerate(data):
             # looking for the first appropriate word
             if (data[j] not in known_words or np.argmax(doc_ptdw[j]) == backgrnd):
@@ -257,3 +299,5 @@ class coh_focon_calculator(object):
             
             vec1 = vec2
         return -res
+        '''
+        return 0

@@ -19,7 +19,7 @@ from itertools import groupby
 
 import scipy as sp
 
-
+debug = False
 is_full = True
 
 pn_folder = r''

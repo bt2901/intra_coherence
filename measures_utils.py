@@ -11,9 +11,9 @@ from collections import defaultdict
 
 import pandas as pd
 
-from document_helper import files_total
+from document_helper import files_total, debug
 from document_helper import calc_doc_ptdw, read_plaintext
-from segmentation import segmentation_evaluation
+from segmentation import segmentation_evaluation, output_detailed_cost
 
 from coherences import coh_newman, coh_mimno #, #coh_cosine
 from intra_coherence import coh_toplen_calculator, coh_focon_calculator, coh_semantic_calculator
@@ -21,9 +21,7 @@ from intra_coherence_legacy import coh_semantic, coh_toplen, coh_focon
 
 import time
 
-
-debug = True    
-debug = False    
+debug = True
 
 def prs(l1, l2):
     return stats.pearsonr(l1, l2)[0]
@@ -134,9 +132,13 @@ class record_results(object):
 
         with codecs.open(self.vw_file, "r", encoding="utf8") as f:
             if (coh_name in coh_names_top_tokens):
-                if len(self.model.score_tracker['TopTokensScore'].last_tokens) == 0 or debug:
+                should_skip = debug or len(self.model.score_tracker['TopTokensScore'].last_tokens) == 0
+                print(should_skip)
+                if should_skip:
                     if not debug:
                         print("WARNING: top tokens is empty")
+                    else:
+                        print("skipped...")
                     res_shape = (len(self.model.topic_names) - 1,)
                     coh_list = {'means': np.full(res_shape, np.nan),
                             'medians': np.full(res_shape, np.nan)}
@@ -170,7 +172,11 @@ class record_results(object):
                     time_coh += time.time() - t0
 
                 coh_list = m.output()
-                print ("timings: p_tdw {} seconds, coh {} seconds".format(time_ptdw, time_coh))
+                filename = "details_of_{}_{}.csv".format(coh_name, self.at)
+                filename = ''.join(char for char in filename 
+                    if char in "_.0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+                m.output_details(os.path.join('results', filename))
+                #print ("timings: p_tdw {} seconds, coh {} seconds".format(time_ptdw, time_coh))
 
         self._append_all_measures(self._coherences_tmp, coh_name, coh_list)
         
@@ -218,6 +224,17 @@ class record_results(object):
             )
             self._segm_quality_tmp['harsh'] = np.append(
                 self._segm_quality_tmp['harsh'], cur_segm_eval['harsh']
+            )
+        with codecs.open(self.vw_file, "r", encoding="utf8") as f:
+            filename = "details_of_segm_{}_{}".format("segm", self.at)
+            filename = ''.join(char for char in filename 
+                if char in "_.0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+            filename = (os.path.join('results', filename + "_{}.csv"))
+            output_detailed_cost(
+                topics=self.model.topic_names, f=f,
+                phi_val=self.phi.values, phi_cols=self.phi_cols, phi_rows=self.phi_rows,
+                theta_val=self.theta.values, theta_cols=self.theta_cols, theta_rows=self.theta_rows,
+                indexes=indexes, filename=filename
             )
             
     def _create_segm_quality_carcass(self):
