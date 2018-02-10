@@ -66,14 +66,6 @@ def ptdw_vectorized(words, phi_val, phi_rows, local_theta):
     sort = np.argsort(phi_rows)
     rank = np.searchsorted(phi_rows, words, sorter=sort)
 
-    '''
-    for i, (w, r) in enumerate(zip(words, rank)):
-        if r >= sort.shape[0]:
-            clean = re.sub('[\0\200-\377]', '^', w)
-            print (i, r, len(w))
-            print (clean)
-    '''
-    
     idx_word_array = sort[rank]
     phi_list = phi_val[idx_word_array, :]
     

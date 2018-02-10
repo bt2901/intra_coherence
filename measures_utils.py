@@ -89,7 +89,7 @@ class ResultStorage(object):
         coh_names = ['newman', 'mimno', 'semantic', 'toplen']
         corrs = {prs: 'prs', spr: 'spr'}
         
-        corr_df = self.measures.corr("spearman").ix[(('segm', "soft"), ('segm', "harsh")), :-1]
+        corr_df = self.measures.corr("spearman").loc[(('segm', "soft"), ('segm', "harsh")), :-1]
         self.measures.to_csv(os.path.join('results', 'measures.csv'), sep=";", encoding='utf-8')
         corr_df.to_csv(os.path.join('results', 'corr.csv'), sep=";", encoding='utf-8')
         

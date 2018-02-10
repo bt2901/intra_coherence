@@ -64,7 +64,7 @@ def read_coocurence_cached(topic_words, topics, window, file, mode="pw"):
         freq["__n_windows__"] = N
         with codecs.open("coocur_{}.p".format(mode), "wb", encoding="utf8") as f:
             pickle.dump(coocur, f)
-        with codecs.open("freq._{}.p".format(mode), "wb", encoding="utf8") as f:
+        with codecs.open("freq_{}.p".format(mode), "wb", encoding="utf8") as f:
             pickle.dump( freq, f)
         print("Pickles updated")
     else: print("Result was cached, using it")
