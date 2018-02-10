@@ -25,62 +25,16 @@ def write_matrix_to_file(filename, matrix):
     np.save(filename, matrix)
 
 
-
-
-
-''' 
-
-def calc_umass_coherence(toptokens, coocur, freq, n_titles):
-    # toptokens ARE SORTED
-    # calc coocurence
-    # coocur, freq, n_titles = read_coocurence(toptokens)
-    coherence = 0.0
-    for i, toptok in enumerate(toptokens):
-        for j, toptok2 in enumerate(toptokens[:i]):
-            if not freq[toptok2]:
-                print toptok2
-                print freq[toptok2]
-                
-            val = float(coocur[toptok][toptok2] + 1.0/n_titles) / freq[toptok2]
-            # print(val, np.log(val))
-            coherence += np.log(val)
-    return coherence
-     
-def calc_pmi_coherence(toptokens, coocur, freq, n_titles):
-    # calc coocurence
-    # coocur, freq, n_titles = read_coocurence(toptokens)
-
-    pmi = 0
-    for i, toptok1 in enumerate(toptokens):
-        for j, toptok2 in enumerate(toptokens):
-            prob_both = (coocur[toptok1][toptok2] + 1.0/n_titles) / n_titles
-            prob_independent = float(freq[toptok2] * freq[toptok1]) / (n_titles * n_titles)
-            pmi += np.log(prob_both / prob_independent)
-    return pmi
-
-     
-def calc_avg_coherence(top_tokens_score, unified_dict, num_topics, coocur_file, n_titles):
-    top_tokens_triplets = zip(top_tokens_score.topic_index, zip(top_tokens_score.token, top_tokens_score.weight))
-    UMass = np.zeros(num_topics)
-    PMI = np.zeros(num_topics)
-    for topic_index, group in itertools.groupby(top_tokens_triplets, key=lambda (topic_index, _): topic_index):
-        group_words = [token for topic_id, (token, weight) in group]
-        coocur, freq = read_coocurence_cached(group_words, coocur_file)
-        UMass[topic_index] = calc_umass_coherence(group_words, coocur, freq, n_titles)
-        PMI[topic_index] = calc_pmi_coherence(group_words, coocur, freq, n_titles)
-    
-    return {"UMass": np.mean(UMass), "PMI": np.mean(PMI)}
-''' 
 import pickle
     
-def read_coocurence_cached(topic_words, topics, window, file):
+def read_coocurence_cached(topic_words, topics, window, file, mode="pw"):
     unknown_cooc = set()
     try:
-        with codecs.open("coocur.p", "r", encoding="utf8") as f_c:
-            with codecs.open("freq.p", "r", encoding="utf8") as f_f:
+        with codecs.open("coocur_{}.p".format(mode), "r") as f_c:
+            with codecs.open("freq_{}.p".format(mode), "r") as f_f:
                 coocur = pickle.load( f_c )
                 freq = pickle.load( f_f )
-    except:
+    except IOError:
         print("Pickles not found")
         coocur = defaultdict(Counter)
         freq = Counter()
@@ -97,23 +51,27 @@ def read_coocurence_cached(topic_words, topics, window, file):
     unknown_tokens = list(unknown_cooc)
     if unknown_tokens:
         print(u", ".join(unknown_tokens))
-        matrix, pw, N = calc_coocur_matrix_legacy([unknown_tokens], ["fake_topic"], window, file)
+        if mode == "pw":
+            matrix, pw, N = calc_coocur_matrix_legacy([unknown_tokens], ["fake_topic"], window, file)
+        elif mode == "dw":
+            matrix, pw = calc_in_same_document_matrix_legacy([unknown_tokens], ["fake_topic"], window, file)
+            N = 0
         for i, t1 in enumerate(unknown_tokens):
             for j, t2 in enumerate(unknown_tokens):
                 coocur[t1][t2] = matrix[0][i][j]
                 coocur[t2][t1] = matrix[0][j][i]
             freq[t1] = pw[0][i]
         freq["__n_windows__"] = N
-        with codecs.open("coocur.p", "wb", encoding="utf8") as f:
+        with codecs.open("coocur_{}.p".format(mode), "wb", encoding="utf8") as f:
             pickle.dump(coocur, f)
-        with codecs.open("freq.p", "wb", encoding="utf8") as f:
+        with codecs.open("freq._{}.p".format(mode), "wb", encoding="utf8") as f:
             pickle.dump( freq, f)
         print("Pickles updated")
     else: print("Result was cached, using it")
 
     return coocur, freq
 
-def generate_coocur_matrix(topic_words, topics, window, file, coocur_dict, freq_dict):
+def translate_to_coocur_matrix(topic_words, topics, window, file, coocur_dict, freq_dict):
     matrix = (
         [[[0 for i in range(0, len(topic_words[0]))]
             for j in range(0, len(topic_words[0]))] 
@@ -185,11 +143,17 @@ def calc_coocur_matrix_legacy(topic_words, topics, window, file):
 
 
 def calc_coocur_matrix(topic_words, topics, window, file):
-    coocur, freq = read_coocurence_cached(topic_words, topics, window, file)
-    matrix, pw, N = generate_coocur_matrix(topic_words, topics, window, file, coocur, freq)# matrix[t] = (p(wi, wj))
+    coocur, freq = read_coocurence_cached(topic_words, topics, window, file, mode="pw")
+    matrix, pw, N = translate_to_coocur_matrix(topic_words, topics, window, file, coocur, freq)# matrix[t] = (p(wi, wj))
     return matrix, pw, N
 
 def calc_in_same_document_matrix(topic_words, topics, window, file):
+    coocur, freq = read_coocurence_cached(topic_words, topics, window, file, mode="dw")
+    matrix, dw, N = translate_to_coocur_matrix(topic_words, topics, window, file, coocur, freq)# matrix[t] = d(wi, wj) - number of articles containing both wi and wj
+    return matrix, dw
+
+
+def calc_in_same_document_matrix_legacy(topic_words, topics, window, file):
     matrix = (
         [[[0 for i in range(0, len(topic_words[k]))] 
             for j in range(0, len(topic_words[k]))]
@@ -238,9 +202,6 @@ def calc_in_same_document_matrix(topic_words, topics, window, file):
     
 
     return matrix, dw
-
-def calc_in_same_document_matrix_new(topic_words, topics, window, file):
-    pass
 
 # ### 2-old Mimno
 
