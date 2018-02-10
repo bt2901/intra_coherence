@@ -21,7 +21,8 @@ from itertools import groupby
 from document_helper import calc_doc_ptdw, read_plaintext_and_labels
 from document_helper import debug
 
-debug = True
+#debug = True
+#debug = not True
 
             
 def calc_cost_matrix(topics, role_nums, f,

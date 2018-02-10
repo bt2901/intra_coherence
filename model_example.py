@@ -42,7 +42,7 @@ def create_model_with_background(dictionary, num_tokens, num_document_passes):
         artm.TopTokensScore(name='TopTokensScore', num_tokens=10, class_id='plain_text'), # web version of Palmetto works only with <= 10 tokens
         artm.SparsityPhiScore(name='SparsityPhiScore'),
         artm.SparsityThetaScore(name='SparsityThetaScore'),
-        artm.TopicKernelScore(name='TopicKernelScore', probability_mass_threshold=0.3)
+        artm.TopicKernelScore(name='TopicKernelScore', probability_mass_threshold=0.3, class_id='plain_text')
         ]
                       
     model = artm.ARTM(topic_names=specific_topics + ["background"], 
@@ -73,6 +73,7 @@ intra_coherence_params = {
 
 num_passes_list = range(1, 20)
 num_passes_list = range(1, 10)
+num_passes_list = range(1, 2)
 
 num_top_tokens = 10
 
@@ -108,7 +109,7 @@ model = create_model_with_background(dictionary=dictionary,
                      num_document_passes=N) 
 
 # number of cycles
-num_of_restarts = 1
+num_of_restarts = 3
 
 def print_status(t0, indent_number, what_is_happening):
     print('({0:>2d}:{1:>2d}){2} {3}'.format(

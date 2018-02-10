@@ -21,7 +21,8 @@ from intra_coherence_legacy import coh_semantic, coh_toplen, coh_focon
 
 import time
 
-debug = True
+#debug = True
+#debug = not True
 
 def prs(l1, l2):
     return stats.pearsonr(l1, l2)[0]
@@ -133,7 +134,6 @@ class record_results(object):
         with codecs.open(self.vw_file, "r", encoding="utf8") as f:
             if (coh_name in coh_names_top_tokens):
                 should_skip = debug or len(self.model.score_tracker['TopTokensScore'].last_tokens) == 0
-                print(should_skip)
                 if should_skip:
                     if not debug:
                         print("WARNING: top tokens is empty")

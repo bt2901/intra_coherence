@@ -37,7 +37,7 @@ class coh_toplen_calculator(object):
         
     def update(self, doc_num, data, doc_ptdw, phi_val, phi_rows):
         local_top_lens = self.measure(self.params, self.topics, doc_num, data, doc_ptdw, phi_val, phi_rows)
-        print(".", sep="", end="")
+        #print(".", sep="", end="")
         
         #s = pd.Series({"lengths_topic_{}".format(t): local_top_lens[t] for t, n in enumerate(self.topics)})
         s = pd.Series({"lengths_topic_{}".format(t): len(local_top_lens[t]) for t, n in enumerate(self.topics)})
