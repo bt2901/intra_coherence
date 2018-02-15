@@ -12,7 +12,7 @@ from collections import defaultdict
 import pandas as pd
 
 from document_helper import files_total, debug
-from document_helper import calc_doc_ptdw, read_plaintext
+from document_helper import _calc_doc_ptdw, read_plaintext
 from segmentation import segmentation_evaluation, output_detailed_cost
 
 from coherences import coh_newman, coh_mimno #, #coh_cosine
@@ -89,7 +89,10 @@ class ResultStorage(object):
         coh_names = ['newman', 'mimno', 'semantic', 'toplen']
         corrs = {prs: 'prs', spr: 'spr'}
         
-        corr_df = self.measures.corr("spearman").loc[(('segm', "soft"), ('segm', "harsh")), :-1]
+        # last_row = df.index[:-1]
+        # corr_df = self.measures.corr("spearman").loc[(('segm', "soft"), ('segm', "harsh")), last_row]
+        # TODO FIXME DEPRECATED
+        corr_df = self.measures.corr("spearman").ix[(('segm', "soft"), ('segm', "harsh")), :-1]
         self.measures.to_csv(os.path.join('results', 'measures.csv'), sep=";", encoding='utf-8')
         corr_df.to_csv(os.path.join('results', 'corr.csv'), sep=";", encoding='utf-8')
         
@@ -131,6 +134,8 @@ class record_results(object):
         coh_func = functions_data[coh_name]["func"]
         coh_calculator = functions_data[coh_name].get("calc", None)
 
+        phi_sort = np.argsort(self.phi_rows)
+
         with codecs.open(self.vw_file, "r", encoding="utf8") as f:
             if (coh_name in coh_names_top_tokens):
                 should_skip = debug or len(self.model.score_tracker['TopTokensScore'].last_tokens) == 0
@@ -161,8 +166,8 @@ class record_results(object):
                     doc_num, data = read_plaintext(line)
                     
                     t0 = time.time()
-                    doc_ptdw = calc_doc_ptdw(data, doc_num, 
-                        phi_val=self.phi.values, phi_rows=self.phi_rows,
+                    doc_ptdw = _calc_doc_ptdw(data, doc_num, 
+                        phi_val=self.phi.values, phi_rows=self.phi_rows, phi_sort=phi_sort, 
                         theta_val=self.theta.values, theta_cols=self.theta_cols
                     )
                     time_ptdw += time.time() - t0
@@ -184,12 +189,13 @@ class record_results(object):
         coh_func = functions_data[coh_name]["func"]
         coh_calculator = functions_data[coh_name]["calc"]
         m = coh_calculator(coh_params, self.model.topic_names)
+        phi_sort = np.argsort(self.phi_rows)
         with codecs.open(self.vw_file, "r", encoding="utf8") as f:
             for line in f:
                 doc_num, data = read_plaintext(line)
                 
-                doc_ptdw = calc_doc_ptdw(data, doc_num, 
-                    phi_val=self.phi.values, phi_rows=self.phi_rows,
+                doc_ptdw = _calc_doc_ptdw(data, doc_num, 
+                    phi_val=self.phi.values, phi_rows=self.phi_rows, phi_sort=phi_sort, 
                     theta_val=self.theta.values, theta_cols=self.theta_cols
                 )
                 m.update(doc_num, data, doc_ptdw, self.phi.values, self.phi_rows)

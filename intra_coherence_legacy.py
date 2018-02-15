@@ -16,7 +16,8 @@ from math import floor, ceil, log
 import matplotlib.pyplot as plt
 from itertools import groupby
 
-from document_helper import calc_doc_ptdw, read_plaintext
+# TODO FIXME
+# from document_helper import calc_doc_ptdw, read_plaintext
 
 def coh_toplen_inner(params, topics, doc_num, data, doc_ptdw,
                phi_val, phi_rows, general_penalty=0.005):

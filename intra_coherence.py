@@ -17,7 +17,7 @@ from math import floor, ceil, log
 import matplotlib.pyplot as plt
 from itertools import groupby
 
-from document_helper import calc_doc_ptdw, read_plaintext
+from document_helper import read_plaintext
 
         
 def distance_L2(wi, wj):

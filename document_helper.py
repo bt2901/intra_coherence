@@ -62,11 +62,13 @@ def read_file_data(f):
     return data
 
         
-def ptdw_vectorized(words, phi_val, phi_rows, local_theta):
-    sort = np.argsort(phi_rows)
-    rank = np.searchsorted(phi_rows, words, sorter=sort)
+def ptdw_vectorized(words, phi_val, phi_rows, local_theta, phi_sort):
+    #sort = np.argsort(phi_rows)
+    #print(sort[:10])
+    #print(phi_rows[:10])
+    rank = np.searchsorted(phi_rows, words, sorter=phi_sort)
 
-    idx_word_array = sort[rank]
+    idx_word_array = phi_sort[rank]
     phi_list = phi_val[idx_word_array, :]
     
     unnormalized_ptdw = phi_list * local_theta[np.newaxis, :]
@@ -82,15 +84,15 @@ def read_words_from_file(f):
         return data
 
     
-def calc_doc_ptdw(data, doc_num,
-                  phi_val, phi_rows,
+def _calc_doc_ptdw(data, doc_num,
+                  phi_val, phi_rows, phi_sort,
                   theta_val, theta_cols):
 
         idx_doc = theta_cols.index(doc_num)
         
         local_theta = theta_val[:, idx_doc]
         
-        doc_ptdw = ptdw_vectorized(data, phi_val, phi_rows, local_theta)
+        doc_ptdw = ptdw_vectorized(data, phi_val, phi_rows, local_theta, phi_sort)
         
         return doc_ptdw
     

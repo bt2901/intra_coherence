@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 from itertools import groupby
 
 #from document_helper import get_orig_labels, get_docnum, calc_doc_ptdw, read_file_data
-from document_helper import calc_doc_ptdw, read_plaintext_and_labels
+from document_helper import _calc_doc_ptdw, read_plaintext_and_labels
 from document_helper import debug
 
 #debug = True
@@ -44,6 +44,7 @@ def calc_cost_matrix(topics, role_nums, f,
     time_cycle = 0
     time_magic = 0
 
+    phi_sort = np.argsort(phi_rows)
     for i, line in enumerate(f):
         if debug:
             if i % 100:
@@ -52,8 +53,8 @@ def calc_cost_matrix(topics, role_nums, f,
         doc_num, data, original_topic_labels = read_plaintext_and_labels(line)
 
         t0 = time.time()
-        doc_ptdw = calc_doc_ptdw(data, doc_num, 
-            phi_val=phi_val, phi_rows=phi_rows,
+        doc_ptdw = _calc_doc_ptdw(data, doc_num, 
+            phi_val=phi_val, phi_rows=phi_rows, phi_sort=phi_sort,
             theta_val=theta_val, theta_cols=theta_cols
         )
         time_ptdw += time.time() - t0
@@ -150,6 +151,8 @@ def output_detailed_cost(topics, f,
     details["soft"].index.name = "doc_num"
     details["harsh"].index.name = "doc_num"
 
+    phi_sort = np.argsort(phi_rows)
+
     for i, line in enumerate(f):
         if debug:
             if i % 100:
@@ -157,8 +160,8 @@ def output_detailed_cost(topics, f,
 
         doc_num, data, original_topic_labels = read_plaintext_and_labels(line)
 
-        doc_ptdw = calc_doc_ptdw(data, doc_num, 
-            phi_val=phi_val, phi_rows=phi_rows,
+        doc_ptdw = _calc_doc_ptdw(data, doc_num, 
+            phi_val=phi_val, phi_rows=phi_rows, phi_sort=phi_sort,
             theta_val=theta_val, theta_cols=theta_cols
         )
         def prepare(mode):
