@@ -12,7 +12,7 @@ from collections import defaultdict
 import pandas as pd
 
 from document_helper import files_total, debug
-from document_helper import _calc_doc_ptdw, read_plaintext
+from document_helper import calc_doc_ptdw, read_plaintext
 from segmentation import segmentation_evaluation, output_detailed_cost
 
 from coherences import coh_newman, coh_mimno #, #coh_cosine
@@ -166,7 +166,7 @@ class record_results(object):
                     doc_num, data = read_plaintext(line)
                     
                     t0 = time.time()
-                    doc_ptdw = _calc_doc_ptdw(data, doc_num, 
+                    doc_ptdw = calc_doc_ptdw(data, doc_num, 
                         phi_val=self.phi.values, phi_rows=self.phi_rows, phi_sort=phi_sort, 
                         theta_val=self.theta.values, theta_cols=self.theta_cols
                     )
@@ -194,7 +194,7 @@ class record_results(object):
             for line in f:
                 doc_num, data = read_plaintext(line)
                 
-                doc_ptdw = _calc_doc_ptdw(data, doc_num, 
+                doc_ptdw = calc_doc_ptdw(data, doc_num, 
                     phi_val=self.phi.values, phi_rows=self.phi_rows, phi_sort=phi_sort, 
                     theta_val=self.theta.values, theta_cols=self.theta_cols
                 )

@@ -84,7 +84,7 @@ def read_words_from_file(f):
         return data
 
     
-def _calc_doc_ptdw(data, doc_num,
+def calc_doc_ptdw(data, doc_num,
                   phi_val, phi_rows, phi_sort,
                   theta_val, theta_cols):
 
