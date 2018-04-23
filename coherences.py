@@ -1,7 +1,7 @@
 # coding: utf-8
 from __future__ import print_function, division
 from munkres import Munkres # for Hungarian algorithm
-
+from collections import defaultdict, Counter
 
 import codecs, re
 import sys, os, glob
@@ -14,51 +14,157 @@ from scipy import stats
 from scipy.misc import comb
 from math import floor, ceil, log
 import matplotlib.pyplot as plt
-from itertools import groupby
+from itertools import groupby, combinations
 
-
+import pandas as pd
 
 from document_helper import regex
+from document_helper import read_plaintext
 
-# ### 2-old Mimno
+def write_matrix_to_file(filename, matrix):
+    np.save(filename, matrix)
 
-# ###### coh_mimno(window, num_tokens)
-# 
-# Считает когерентности тем в модели по Мимно
-# 
-# *Вход*:  
-# window [int] - ширина окна, в котором ищем топ-слова  
-# num_tokens [int] - число топ-слов, по которым считается когерентность
-# 
-# *Выход*:  
-# {'means': [., ...], 'medians': [., ...]} [dict] - словарь со значениями - листами когерентностей для тем модели, ключами - индикаторами, как считались эти когерентности: как среднее или медиана по score($w_i$, $w_j$)
 
-# In[13]:
-
-def coh_mimno(window, num_top_tokens, model, topics, files, files_path):
-    means = [0 for i in range(len(topics))] # part of result
-    medians = [0 for i in range(len(topics))] # part of result
+import pickle
     
-    topic_words = [model.score_tracker['TopTokensScore'].last_tokens[topic] for topic in topics]
-    assert (num_top_tokens <= len(topic_words[0])),"Ask more top-tokens than available"
-    topic_words = [topic_words[i][:num_top_tokens] for i in range(len(topics))]
+def read_coocurence_cached(topic_words, topics, window, file, mode="pw"):
+    unknown_cooc = set()
+    try:
+        with codecs.open("coocur_{}.p".format(mode), "r") as f_c:
+            with codecs.open("freq_{}.p".format(mode), "r") as f_f:
+                coocur = pickle.load( f_c )
+                freq = pickle.load( f_f )
+    except IOError:
+        print("Pickles not found")
+        coocur = defaultdict(Counter)
+        freq = Counter()
     
-    le = 0 # left pointer
-    ri = 0 # right pointer
+    for k in range(0, len(topics)):
+        for t1, t2 in combinations(topic_words[k], r=2):
+            if t2 not in coocur[t1]:
+                unknown_cooc.add(t1)
+                unknown_cooc.add(t2)
+        for toptok in topic_words[k]:
+            if toptok not in freq:
+                unknown_cooc.add(toptok)
+
+    unknown_tokens = list(unknown_cooc)
+    if unknown_tokens:
+        print(u", ".join(unknown_tokens))
+        if mode == "pw":
+            matrix, pw, N = calc_coocur_matrix_legacy([unknown_tokens], ["fake_topic"], window, file)
+        elif mode == "dw":
+            matrix, pw = calc_in_same_document_matrix_legacy([unknown_tokens], ["fake_topic"], window, file)
+            N = 0
+        for i, t1 in enumerate(unknown_tokens):
+            for j, t2 in enumerate(unknown_tokens):
+                coocur[t1][t2] = matrix[0][i][j]
+                coocur[t2][t1] = matrix[0][j][i]
+            freq[t1] = pw[0][i]
+        freq["__n_windows__"] = N
+        with codecs.open("coocur_{}.p".format(mode), "wb", encoding="utf8") as f:
+            pickle.dump(coocur, f)
+        with codecs.open("freq_{}.p".format(mode), "wb", encoding="utf8") as f:
+            pickle.dump( freq, f)
+        print("Pickles updated")
+    else: print("Result was cached, using it")
+
+    return coocur, freq
+
+def translate_to_coocur_matrix(topic_words, topics, window, file, coocur_dict, freq_dict):
+    matrix = (
+        [[[0 for i in range(0, len(topic_words[0]))]
+            for j in range(0, len(topic_words[0]))] 
+                for topic in topics]
+    ) # matrix[t] = (p(wi, wj))
+    pw = [[0] * len(topic_words[i]) for i in range(len(topics))] # single probabilities
+
+    for k in range(0, len(topics)):
+        for i, w1 in enumerate(topic_words[k]):
+            for j, w2 in enumerate(topic_words[k]):
+                matrix[k][i][j] = coocur_dict[w1][w2]
+                matrix[k][j][i] = coocur_dict[w2][w1]
+            pw[k][i] = freq_dict[w1]
+
+    return matrix, pw, freq_dict["__n_windows__"]
+
+def calc_coocur_matrix_legacy(topic_words, topics, window, file):
+    matrix = (
+        [[[0 for i in range(0, len(topic_words[0]))]
+            for j in range(0, len(topic_words[0]))] 
+                for topic in topics]
+    ) # matrix[t] = (p(wi, wj))
+    pw = [[0] * len(topic_words[i]) for i in range(len(topics))] # single probabilities
+
+    N = 0 # total number of windows
+    # coocur_dfs = [pd.DataFrame(data=np.array(matrix[k]), columns=topic_words[k], index=topic_words[k]) for k, _ in enumerate(topics)] 
+    for line in file:
+        doc_num, data = read_plaintext(line)
+        
+        if (len(data) < window):
+            continue
+            
+        left = 0
+        right = left + window
+        
+        while (right <= len(data)): # excluding right, so <= is OK
+            # get window сonsecutive words from the file text
+            current_slice = data[left:right] # excluding right
+            # counting addition to p(wi) at the current slice
+            current_points = [[0] * len(topic_words[i]) for i in range(len(topics))]
+            
+            for k in range(0, len(topics)):
+                for i in range(0, len(current_slice)):
+                    if (current_slice[i] in topic_words[k]):
+                        current_points[k][topic_words[k].index(current_slice[i])] += 1
+                        pw[k][topic_words[k].index(current_slice[i])] += 1
+                if (any(current_points[k])):
+                    # FIXIT: with np may be faster
+                    for i in range(0, len(current_points[k])-1):
+                        if (current_points[k][i] == 0):
+                            continue
+                        for j in range(i+1, len(current_points[k])):
+                            if (current_points[k][j] == 0):
+                                continue
+                            matrix[k][i][j] += 1
+                            matrix[k][j][i] += 1
+                            #print(topic_words[k][i], topic_words[k][j])
+                            #print((topic_words[k][i], topic_words[k][j]) in coocur_dfs[k].columns) 
+                            #print(coocur_dfs[k].columns)
+                            # coocur_dfs[k].loc[topic_words[k][i], topic_words[k][j]] += 1
+                            # coocur_dfs[k].loc[topic_words[k][j], topic_words[k][i]] += 1
+            left += 1
+            right += 1
+            
+        N += left + 1
+    # for k, topic in enumerate(topics):
+        # coocur_dfs[k].to_csv("coocur_{}.csv".format(topic), encoding="utf8")
+    return matrix, pw, N
+
+
+def calc_coocur_matrix(topic_words, topics, window, file):
+    coocur, freq = read_coocurence_cached(topic_words, topics, window, file, mode="pw")
+    matrix, pw, N = translate_to_coocur_matrix(topic_words, topics, window, file, coocur, freq)# matrix[t] = (p(wi, wj))
+    return matrix, pw, N
+
+def calc_in_same_document_matrix(topic_words, topics, window, file):
+    coocur, freq = read_coocurence_cached(topic_words, topics, window, file, mode="dw")
+    matrix, dw, N = translate_to_coocur_matrix(topic_words, topics, window, file, coocur, freq)# matrix[t] = d(wi, wj) - number of articles containing both wi and wj
+    return matrix, dw
+
+
+def calc_in_same_document_matrix_legacy(topic_words, topics, window, file):
+    matrix = (
+        [[[0 for i in range(0, len(topic_words[k]))] 
+            for j in range(0, len(topic_words[k]))]
+                for k in range(len(topics))]
+    ) # matrix[t] = d(wi, wj) - number of articles containing both wi and wj
     
     # number of articles containing single wi
     dw = [[0] * len(topic_words[i]) for i in range(len(topics))]
-    
-    matrix = (
-        [[[0 for i in range(0, len(topic_words[k]))] for j in range(0, len(topic_words[k]))]
-           for k in range(len(topics))]
-    ) # matrix[t] = d(wi, wj) - number of articles containing both wi and wj
-    
-    for f in files:
-        if "txt" not in f:
-            continue
-        file = codecs.open(os.path.join(files_path, f), 'r', 'utf-8')
-        data = regex.sub(u'', file.read()).split()
+
+    for line in file:
+        doc_num, data = read_plaintext(line)
               
         if (len(data) < window):
             continue
@@ -90,12 +196,42 @@ def coh_mimno(window, num_top_tokens, model, topics, files, files_path):
                             matrix_current[k][j][i] = 1
             left += 1
             right += 1
-            
-        file.close()
-        
+                    
         dw = np.add(dw, dw_current)
         matrix = np.add(matrix, matrix_current)
     
+
+    return matrix, dw
+
+# ### 2-old Mimno
+
+# ###### coh_mimno(window, num_tokens)
+# 
+# Считает когерентности тем в модели по Мимно
+# 
+# *Вход*:  
+# window [int] - ширина окна, в котором ищем топ-слова  
+# num_tokens [int] - число топ-слов, по которым считается когерентность
+# 
+# *Выход*:  
+# {'means': [., ...], 'medians': [., ...]} [dict] - словарь со значениями - листами когерентностей для тем модели, ключами - индикаторами, как считались эти когерентности: как среднее или медиана по score($w_i$, $w_j$)
+
+# In[13]:
+
+def coh_mimno(window, num_top_tokens, model, topics, file):
+    means = [0 for i in range(len(topics))] # part of result
+    medians = [0 for i in range(len(topics))] # part of result
+    
+    topic_words = [model.score_tracker['TopTokensScore'].last_tokens[topic] for topic in topics]
+    assert (num_top_tokens <= len(topic_words[0])),"Ask more top-tokens than available"
+    topic_words = [topic_words[i][:num_top_tokens] for i in range(len(topics))]
+    
+    le = 0 # left pointer
+    ri = 0 # right pointer
+    
+    
+    matrix, dw = calc_in_same_document_matrix(topic_words, topics, window, file)
+    write_matrix_to_file("MIMNO_matrix.csv", matrix) 
     dw = np.array(dw)
     pmi_list = [np.array([0.0] * comb(len(topic_words[i]), 2, exact=True)) for i in range(len(topics))]
     
@@ -163,7 +299,7 @@ def coh_cosine(num_top_tokens, model, topics, phi_val, phi_rows):
     
     
 
-def coh_newman(window, num_top_tokens, model, topics, files, files_path):
+def coh_newman(window, num_top_tokens, model, topics, file):
     means = [0 for i in range(len(topics))] # part of future result
     medians = [0 for i in range(len(topics))] # part of future result
     
@@ -173,52 +309,8 @@ def coh_newman(window, num_top_tokens, model, topics, files, files_path):
     
     le = 0 # left pointer
     ri = 0 # right pointer
-    pw = [[0] * len(topic_words[i]) for i in range(len(topics))] # single probabilities
-    N = 0 # total number of windows
-    matrix = (
-        [[[0 for i in range(0, len(topic_words[0]))]
-           for j in range(0, len(topic_words[0]))] for topic in topics]
-    ) # matrix[t] = (p(wi, wj))
-    
-    for f in files:
-        if "txt" not in f:
-            continue
-        file = codecs.open(os.path.join(files_path, f), 'r', 'utf-8')
-        data = regex.sub(u'', file.read()).split()
-        
-        if (len(data) < window):
-            continue
-            
-        left = 0
-        right = left + window
-        
-        while (right <= len(data)): # excluding right, so <= is OK
-            # get window сonsecutive words from the file text
-            current_slice = data[left:right] # excluding right
-            # counting addition to p(wi) at the current slice
-            current_points = [[0] * len(topic_words[i]) for i in range(len(topics))]
-            
-            for k in range(0, len(topics)):
-                for i in range(0, len(current_slice)):
-                    if (current_slice[i] in topic_words[k]):
-                        current_points[k][topic_words[k].index(current_slice[i])] += 1
-                        pw[k][topic_words[k].index(current_slice[i])] += 1
-                if (any(current_points[k])):
-                    # FIXIT: with np may be faster
-                    for i in range(0, len(current_points[k])-1):
-                        if (current_points[k][i] == 0):
-                            continue
-                        for j in range(i+1, len(current_points[k])):
-                            if (current_points[k][j] == 0):
-                                continue
-                            matrix[k][i][j] += 1
-                            matrix[k][j][i] += 1
-            left += 1
-            right += 1
-            
-        file.close()
-        N += left + 1
-    
+    matrix, pw, N = calc_coocur_matrix(topic_words, topics, window, file)
+    write_matrix_to_file("NEWMAN_matrix.csv", matrix) 
     pw = np.array(pw)
     pmi_list = [np.array([0.0] * comb(len(topic_words[i]), 2, exact=True)) for i in range(len(topics))]
     

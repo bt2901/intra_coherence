@@ -9,15 +9,19 @@ import artm
 from document_helper import pn_folder, vw_folder, files_total, domain_path
 from measures_utils import ResultStorage, record_results    
 
+print(artm.version())
+
 def create_model(dictionary, num_tokens, num_document_passes):
 
-    tn = ['topic {}'.format(i) for i in range(1, 20)]
+    specific_topics = ['topic {}'.format(i) for i in range(1, 20)]
     scores = [artm.PerplexityScore(name='PerplexityScore', dictionary=dictionary),
     artm.TopTokensScore(name='TopTokensScore', num_tokens=10), # web version of Palmetto works only with <= 10 tokens
     artm.SparsityPhiScore(name='SparsityPhiScore'),
     artm.SparsityThetaScore(name='SparsityThetaScore')]
                       
-    model = artm.ARTM(topic_names=tn, regularizers=[], cache_theta=True, scores=scores)
+    model = artm.ARTM(topic_names=specific_topics, 
+        regularizers=[], cache_theta=True, scores=scores,
+        class_ids={'plain_text': 1.0})
 
     model.initialize(dictionary=dictionary)
     model.num_document_passes = num_document_passes
@@ -35,13 +39,15 @@ def create_model_with_background(dictionary, num_tokens, num_document_passes):
     topic_names = specific_topics + ["background"]
     scores = [
         artm.PerplexityScore(name='PerplexityScore', dictionary=dictionary),
-        artm.TopTokensScore(name='TopTokensScore', num_tokens=10), # web version of Palmetto works only with <= 10 tokens
+        artm.TopTokensScore(name='TopTokensScore', num_tokens=10, class_id='plain_text'), # web version of Palmetto works only with <= 10 tokens
         artm.SparsityPhiScore(name='SparsityPhiScore'),
         artm.SparsityThetaScore(name='SparsityThetaScore'),
-        artm.TopicKernelScore(name='TopicKernelScore', probability_mass_threshold=0.3)
+        artm.TopicKernelScore(name='TopicKernelScore', probability_mass_threshold=0.3, class_id='plain_text')
         ]
                       
-    model = artm.ARTM(topic_names=specific_topics + ["background"], regularizers=[], cache_theta=True, scores=scores)
+    model = artm.ARTM(topic_names=specific_topics + ["background"], 
+        regularizers=[], cache_theta=True, scores=scores,
+        class_ids={'plain_text': 1.0})
 
     model.regularizers.add(artm.SmoothSparsePhiRegularizer(name='SparsePhi', tau=-sp_phi_tau, topic_names=specific_topics))
     model.regularizers.add(artm.SmoothSparsePhiRegularizer(name='SmoothPhi', tau=sm_phi_tau, topic_names=["background"]))
@@ -56,13 +62,18 @@ def create_model_with_background(dictionary, num_tokens, num_document_passes):
 
 
 coh_names = ['newman', 'mimno', 
-             'semantic', 'toplen', 'focon']
+             'semantic', 'toplen', "focon"]
+
+#coh_names = ['newman', 'mimno', 'toplen']
 
 intra_coherence_params = {
-    "window": 10, "threshold": 0.02, "focon_threshold": 5, "cosine_num_top_tokens": 10, "num_top_tokens": 10
+    "window": 10, "threshold": 0.02, "focon_threshold": 5, "cosine_num_top_tokens": 10, "num_top_tokens": 10,
+    "general_penalty": 0.005
 }
 
-num_passes_list = [1, 2, 3]
+num_passes_list = range(1, 20)
+num_passes_list = range(1, 10)
+num_passes_list = range(1, 2)
 
 num_top_tokens = 10
 
@@ -73,13 +84,14 @@ num_top_tokens = 10
 batch_vectorizer = None
 
 if len(glob.glob(os.path.join(pn_folder, vw_folder, '*.batch'))) < 1:
-    batch_vectorizer = artm.BatchVectorizer(data_path=os.path.join(pn_folder, vw_folder, 'vw.txt'),
+    batch_vectorizer = artm.BatchVectorizer(data_path=os.path.join(pn_folder, vw_folder, 'vw_bimodal.txt'),
                                             data_format='vowpal_wabbit',
                                             target_folder=os.path.join(pn_folder, vw_folder)) 
 else:
     batch_vectorizer = artm.BatchVectorizer(data_path=os.path.join(pn_folder, vw_folder),
                                             data_format='batches')
 
+vw_file = os.path.join(pn_folder, vw_folder, 'vw_bimodal.txt')
 dictionary = artm.Dictionary()
 
 dict_path = os.path.join(pn_folder, vw_folder, 'dict.dict')
@@ -90,9 +102,6 @@ if not os.path.isfile(dict_path):
 
 dictionary.load(dictionary_path=dict_path)
 
-
-dictionary.filter(min_df=2, max_df_rate=0.4)
-
 N = 1
 # model
 model = create_model_with_background(dictionary=dictionary,
@@ -100,7 +109,7 @@ model = create_model_with_background(dictionary=dictionary,
                      num_document_passes=N) 
 
 # number of cycles
-num_of_restarts = 2
+num_of_restarts = 3
 
 def print_status(t0, indent_number, what_is_happening):
     print('({0:>2d}:{1:>2d}){2} {3}'.format(
@@ -118,6 +127,7 @@ def randomize_model(restart_num, model):
     random_init = np.random.random_sample(phi_numpy_matrix.shape)
     random_init /= np.sum(random_init, axis=0)
     np.copyto(phi_numpy_matrix, random_init)
+    return topic_model_data, phi_numpy_matrix
     
 t0 = time.time()
 
@@ -125,7 +135,7 @@ indent = '    '
 indent_number = 0
 data_storage = ResultStorage(coh_names, domain_path=domain_path)
 for restart_num in range(num_of_restarts):
-    randomize_model(restart_num, model)
+    topic_model_data, phi_numpy_matrix = randomize_model(restart_num, model)
     # range of models with different segmentation qualities
     num_passes_last = 0
     for num_passes_total in num_passes_list:
@@ -138,8 +148,8 @@ for restart_num in range(num_of_restarts):
         )
         num_passes_last = num_passes_total
 
-        model_id = str({"name": "PLSA", "restart_num": restart_num, "iter": num_passes_total})
-        with record_results(model=model, files=files_total, at=model_id, save_in=data_storage) as recorder:
+        model_id = " {} ".format({"name": "PLSA", "restart_num": restart_num, "iter": num_passes_total})
+        with record_results(model=model, vw_file=vw_file, at=model_id, save_in=data_storage) as recorder:
             for coh_name in coh_names:
                 print_status(t0, indent_number, coh_name)
                 recorder.evaluate(coh_name, intra_coherence_params)
@@ -150,11 +160,10 @@ for restart_num in range(num_of_restarts):
             print_status(t0, indent_number, "segmentation evaluation")
             recorder.evaluate_segmentation_quality()
 
-            #print_status(t0, indent_number, "current parametres: window: {}, threshold: {}".format(window, threshold))
             indent_number += 1
             
         indent_number -= 1
     
-    print(data_storage.segm_quality["soft"].items())
-    #data_storage.data_results_save(file_name=something)
+    #print(data_storage.segm_quality.items())
+data_storage.data_results_save()
     

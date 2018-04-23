@@ -6,7 +6,7 @@ import codecs, string
 from nltk.corpus import stopwords
 
 
-exclude = string.punctuation + u'«' + u'»' + u'—' + u'…'
+exclude = string.punctuation + u'«' + u'»' + u'—' + u'…' + u'„' + u'“'
 digits = u'0123456789'
 english_vowels = u'aeiouy'
 regex = re.compile(u'[%s]' % re.escape(exclude)) # regex.sub('', s) to be used further
@@ -15,13 +15,12 @@ stop_words = []
 
 forbidden_set = set(digits) | set(exclude) | set(stop_words)
 
+cyrillic_symbols = set(u"абвгдеёжзийклмнопрстуфхцчшщъыьэюяАБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ")
+
 def is_bad_word(word):
+    if len(set(word) - cyrillic_symbols) > 0:
+        return True
     if len(word) == 0:
-        return True
-    if word == u'topic' or word in forbidden_set:
-        return True
-    # are there punctuation marks inside word?
-    if (len(forbidden_set.intersection(set(word))) > 0):
         return True
     return False
 
@@ -37,7 +36,7 @@ def gen_vowpal(plaintext):
         all_tokens += cur_tokens
 
     tokens_string = u" ".join(u"{}".format(tok) for tok in all_tokens if not is_bad_word(tok))
-    return tokens_string
+    return tokens_string, all_tokens
 
 def get_orig_labels(data_filtered, data):
     '''
@@ -56,7 +55,7 @@ def get_orig_labels(data_filtered, data):
             i, j = i+1, j+1
         else:
             j += 1
-    return original_topic_labels
+    return u" ".join(u"{}".format(tok) for tok in original_topic_labels)
 
 
 
@@ -67,14 +66,16 @@ def vowpalize(dir_name):
         with codecs.open(doc, "r", encoding="utf8") as f:
             content = f.read()
             doc_id = doc.strip().split("\\")[1]
-            vowpal_desc = gen_vowpal(content)
-            original_labels = get_orig_labels(vowpal_desc, content)
+            doc_id = doc_id.split(".")[0]
+            vowpal_desc, raw_tokens = gen_vowpal(content)
+            original_labels = get_orig_labels(vowpal_desc.split(" "), raw_tokens)
             with codecs.open("vw_{}.txt".format("bimodal"), "a", encoding="utf8") as out:
-                full_desc = u"{} |plain_text {} |labels {} \n".format(doc, vowpal_desc, original_labels)
+                full_desc = u"{} |plain_text {} |labels {} \n".format(doc_id, vowpal_desc, original_labels)
                 out.write(full_desc)
             with codecs.open("vw_{}.txt".format("plaintext"), "a", encoding="utf8") as out:
-                out.write( u"{} |plain_text {} \n".format(doc, vowpal_desc) )
+                out.write( u"{} |plain_text {} \n".format(doc_id, vowpal_desc) )
             with codecs.open("vw_{}.txt".format("labels"), "a", encoding="utf8") as out:
-                out.write( u"{} |labels {} \n".format(doc, original_labels) )
+                out.write( u"{} |labels {} \n".format(doc_id, original_labels) )
 
-vowpalize("PNaukaMixedLemmatized_short")
+vowpalize("PNaukaMixedLemmatized_full")
+#vowpalize("PNaukaMixedLemmatized_short")

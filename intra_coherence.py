@@ -2,6 +2,7 @@
 from __future__ import print_function, division
 from munkres import Munkres # for Hungarian algorithm
 
+import pandas as pd
 
 import codecs, re
 import sys, os, glob
@@ -16,44 +17,82 @@ from math import floor, ceil, log
 import matplotlib.pyplot as plt
 from itertools import groupby
 
-from document_helper import get_docnum, calc_doc_ptdw, read_words_from_file
+from document_helper import read_plaintext
 
-def coh_toplen(params, topics, files, files_path,
-               phi_val, phi_cols, phi_rows,
-               theta_val, theta_cols, theta_rows,
-               general_penalty=0.005):
-    threshold = params["threshold"]
-    # lists of lists of topics' lengths
-    top_lens = [[] for i in range(len(topics))]
-    
-    known_words = phi_rows
         
-    for f in files:
-        if get_docnum(f) not in theta_cols:
-            continue
+def distance_L2(wi, wj):
+    return norm(np.subtract(wi, wj))
+
+class coh_toplen_calculator(object):
+    def __init__(self, params, topics):
+        # lists of lists of topics' lengths
+        self.top_lens = [[] for i in range(len(topics))]
+        self.topics = topics
+        self.params = params
+        
+        model = {"lenghts_topic_{}".format(t): [] for t, n in enumerate(topics)}
+        model["doc_len"] = []
+        self.details = pd.DataFrame(model)
+        self.details.index.name = "doc_num"
+        
+    def update(self, doc_num, data, doc_ptdw, phi_val, phi_rows):
+        local_top_lens = self.measure(self.params, self.topics, doc_num, data, doc_ptdw, phi_val, phi_rows)
+        #print(".", sep="", end="")
+        
+        #s = pd.Series({"lengths_topic_{}".format(t): local_top_lens[t] for t, n in enumerate(self.topics)})
+        s = pd.Series({"lengths_topic_{}".format(t): len(local_top_lens[t]) for t, n in enumerate(self.topics)})
+        s["doc_len"] = len(data)
+        self.details.loc[doc_num] = s 
+        
+        for i, topic_name in enumerate(self.top_lens):
+            self.top_lens[i] += local_top_lens[i]
+            
+    def output_details(self, filename):
+        self.details.to_csv(filename, sep=";", encoding='utf-8')
+            
+    def output(self):
+        # if some topics didn't appear in the documents
+        for i in range(len(self.top_lens)):
+            if (len(self.top_lens[i]) == 0):
+                self.top_lens[i].append(0)
+        
+        means = np.array([np.mean(np.array(p)) for p in self.top_lens])
+        medians = np.array([np.median(np.array(p)) for p in self.top_lens])
+        
+        #details = pd.Series(local_top_lens)
+        #details.name = doc_num
+
+        # trow away max value
+        return {'means': means[np.argsort(means)[:-1]],
+                'medians': medians[np.argsort(medians)[:-1]]}
+    
+    def measure(self, params, topics, doc_num, data, doc_ptdw, phi_val, phi_rows):
+        
+        threshold, general_penalty = params["threshold"], params["general_penalty"]
+        # lists of lists of topics' lengths
+        top_lens = [[] for i in range(len(topics))]
+        
+        known_words = phi_rows
+
         # positions of topic-related words in the document (and these words as well)
         # (pos_topic_words[topic_num][f][idx] = word)
         pos_topic_words = [{} for topic in topics]
+        t0 = time.time()
+        time_pos_words = 0
         
-        data_untouched = read_words_from_file(f)        
-        data, doc_ptdw = calc_doc_ptdw(
-            f=f, topics=topics, known_words=known_words,
-            phi_val=phi_val, phi_rows=phi_rows,
-            theta_val=theta_val, theta_cols=theta_cols
-        )
-        
-        for j in range(len(data_untouched)):
-            word = data_untouched[j]
-            
-            if (word not in known_words):
-                continue
-                
-            p_tdw_list = doc_ptdw[data.index(word)]
+        for j, word in enumerate(data):
+                            
+            p_tdw_list = doc_ptdw[j]
             pos_topic_words[np.argmax(p_tdw_list)][j] = word
         
         pos_list = [sorted(pos_topic_words[l]) for l in range(len(topics))]
+        time_pos_words += time.time() - t0
+        #print ("time_pos_words: {} sec".format(time_pos_words))
+
+        time_while = 0
             
-        for l in range(len(topics)):
+        for l in range(3):
+        #for l in range(len(topics)):
             if (len(pos_list[l]) == 0):
                 continue
                 
@@ -64,8 +103,9 @@ def coh_toplen(params, topics, files, files_path,
                 idx = i # first word is also taking part in calculations
                 cur_sum = threshold
 
-                while (cur_sum >= 0 and idx < len(data_untouched)):
-                    word = data_untouched[idx]
+                t0 = time.time()
+                while (cur_sum >= 0 and idx < len(data)):
+                    word = data[idx]
                     
                     # word is out of Phi
                     if (word not in known_words):
@@ -73,7 +113,7 @@ def coh_toplen(params, topics, files, files_path,
                         idx += 1
                         continue
                         
-                    p_tdw_list = doc_ptdw[data.index(word)]
+                    p_tdw_list = doc_ptdw[idx]
 
                     argsort_list = np.argsort(np.array(p_tdw_list))
                     idxmax = argsort_list[-1 - bool(argsort_list[-1] == l)]
@@ -86,124 +126,149 @@ def coh_toplen(params, topics, files, files_path,
 
                     idx += 1
 
+                time_while += time.time() - t0
                 top_lens[l].append(idx - i)
                 j += 1
-    
-    # if some topics didn't appear in the documents
-    for i in range(len(top_lens)):
-        if (len(top_lens[i]) == 0):
-            top_lens[i].append(0)
-    
-    means = np.array([np.mean(np.array(p)) for p in top_lens])
-    medians = np.array([np.median(np.array(p)) for p in top_lens])
-    # trow away max value
-    return {'means': means[np.argsort(means)[:-1]],
-            'medians': medians[np.argsort(medians)[:-1]]}
+        #print ("time_while: {} sec".format(time_while))
+        return top_lens
 
-        
-def distance_L2(wi, wj):
-    return norm(np.subtract(wi, wj))
-
-            
-def coh_semantic(params, topics, files, files_path,
-                 phi_val, phi_cols, phi_rows,
-                 theta_val, theta_cols, theta_rows):
+def coh_semantic_inner(params, topics, doc_num, data, doc_ptdw,
+                 phi_val, phi_rows):
     
     known_words = phi_rows
     window = params["window"]
-    means = [0 for i in range(len(topics))]
-    N_list = [0 for i in range(len(topics))] # pairs examined
-    for f in files:
-        if get_docnum(f) not in theta_cols:
+    total_cost = np.zeros( (len(topics),) )
+    n_pairs_examined = np.zeros( (len(topics),) )
+    
+    if (len(data) < window):
+        return np.array(means), np.array(N_list)
+    
+    # positions of topic-related words in the document
+    pos_topic_words = [{} for topic in topics]
+            
+    for i, word in enumerate(data):
+        p_tdw_list = doc_ptdw[i]
+        pos_topic_words[np.argmax(p_tdw_list)][i] = word
+        
+    pos_list = [sorted(pos_topic_words[l]) for l in range(len(topics))]
+
+    # counting score(wi, wj)
+    for l in range(len(topics)):            
+        if (len(pos_list[l]) == 0):
             continue
-        # positions of topic-related words in the document
-        pos_topic_words = [{} for topic in topics]
-    
-        data, doc_ptdw = calc_doc_ptdw(
-            f=f, topics=topics, known_words=known_words,
-            phi_val=phi_val, phi_rows=phi_rows,
-            theta_val=theta_val, theta_cols=theta_cols
-        )
-        
-        if (len(data) < window):
-            continue
-        
-        for i in range(0, len(data)):
-            word = data[i]
-                
-            p_tdw_list = doc_ptdw[i]
-            pos_topic_words[np.argmax(p_tdw_list)][i] = word
-        
-        pos_list = [sorted(pos_topic_words[l]) for l in range(len(topics))]
-    
-        # counting score(wi, wj)
-        for l in range(len(topics)):            
-            if (len(pos_list[l]) == 0):
-                continue
 
-            for i in range(0, len(pos_list[l])-1):
-                pos_i = pos_list[l][i]
-                vec1 = phi_val[phi_rows.index(pos_topic_words[l][pos_i])]
+        for i in range(0, len(pos_list[l])-1):
+            pos_i = pos_list[l][i]
+            vec1 = phi_val[phi_rows.index(pos_topic_words[l][pos_i])]
 
-                for j in range(i+1, min(i+window, len(pos_list[l]))):
-                    pos_j = pos_list[l][j]
-                    vec2 = phi_val[phi_rows.index(pos_topic_words[l][pos_j])]
+            for j in range(i+1, min(i+window, len(pos_list[l]))):
+                pos_j = pos_list[l][j]
+                vec2 = phi_val[phi_rows.index(pos_topic_words[l][pos_j])]
 
-                    means[l] += distance_L2(vec1, vec2)
-                    N_list[l] += 1
+                total_cost[l] += distance_L2(vec1, vec2)
+                n_pairs_examined[l] += 1
+    return total_cost, n_pairs_examined
+
+def coh_semantic_inner_alt(params, topics, doc_num, data, doc_ptdw,
+                 phi_val, phi_rows):
     
-    means = np.array(means)
-    N_list = np.array(N_list)
-    
-    res = np.divide(-1 * means, (N_list + 0.001))
-    
-    # throw out max value when counting mean
-    # because if there is a background theme
-    # it may affect the result largely
-    return {'means': res[np.argsort(res)[:-1]], 'medians': np.full(res.shape, np.nan)}
-
-    
-def coh_focon(params, topics, files, files_path,
-              phi_val, phi_cols, phi_rows,
-              theta_val, theta_cols, theta_rows):
-
-    threshold = params["focon_threshold"]
-    res = 0.0
-
     known_words = phi_rows
-    if ('topic' in known_words):
-        known_words.remove('topic')
+    window = params["window"]
+    total_cost = np.zeros( (len(topics),) )
+    n_pairs_examined = np.ones( (len(topics),) )
     
-    '''
-    # kinda determining background topic
-    argmax_list = np.argmax(phi_val, axis=1)
-    backgrnd = sp.stats.mode(argmax_list)[0][0] + 1
-    # and topic number is (backgrnd + 1)
-    '''
-    backgrnd = -1
-    cur_threshold = 0
-        
-    for f in files:       
-        if get_docnum(f) not in theta_cols:
-            continue
+    if (len(data) < window):
+        return np.array(total_cost), np.zeros( (len(topics),) )
+    
+    n_pairs_examined = len(data) - window + 1
+    for i in range(n_pairs_examined):
+        cur_window = doc_ptdw[i:i+window, :]
+        total_cost += np.var(cur_window) 
+            
+    return total_cost, n_pairs_examined
 
-        data, doc_ptdw = calc_doc_ptdw(
-            f=f, topics=topics, known_words=known_words,
-            phi_val=phi_val, phi_rows=phi_rows,
-            theta_val=theta_val, theta_cols=theta_cols
-        )
         
-        # looking for the first appropriate word
-        i = 0
-        for i in range(len(data)):
-            if (data[i] in known_words and np.argmax(doc_ptdw[i]) != backgrnd):
-                vec1 = doc_ptdw[i]
-                break
+class coh_semantic_calculator(object):
+    def __init__(self, params, topics):
+        # lists of lists of topics' lengths
+        self.means = np.zeros( (len(topics),) )
+        self.N_list = np.zeros( (len(topics),) ) # pairs examined
+        self.mode = "alt"
+
+        self.topics = topics
+        self.params = params
+        model = {"cost_topic_{}".format(t): [] for t, n in enumerate(topics)}
+        model["n_pairs"] = []
+        self.details = pd.DataFrame(model)
+        self.details.index.name = "doc_num"
         
+    def update(self, doc_num, data, doc_ptdw, phi_val, phi_rows):
+        local_means, local_N_list = self.measure(self.params, self.topics, doc_num, data, doc_ptdw, phi_val, phi_rows)
+        self.means += local_means
+        self.N_list += local_N_list
+        
+        s = pd.Series({"cost_topic_{}".format(t): local_means[t] for t, n in enumerate(self.topics)})
+        s["n_pairs"] = local_N_list
+        self.details.loc[doc_num] = s 
+    
+    def output_details(self, filename):
+        self.details.to_csv(filename, sep=";", encoding='utf-8')
+            
+    def output(self):
+        res = np.divide(-1 * self.means, (self.N_list + 0.001))
+        
+        # throw out max value when counting mean
+        # because if there is a background theme
+        # it may affect the result largely
+        return {'means': res[np.argsort(res)[:-1]], 'medians': np.full(res.shape, np.nan)}
+    
+    def measure(self, params, topics, doc_num, data, doc_ptdw, phi_val, phi_rows):
+        if self.mode == "alt":
+            return coh_semantic_inner_alt(params, topics, doc_num, data, doc_ptdw, phi_val, phi_rows)
+        return coh_semantic_inner(params, topics, doc_num, data, doc_ptdw, phi_val, phi_rows)
+
+
+        
+class coh_focon_calculator(object):
+    def __init__(self, params, topics):
+        # lists of lists of topics' lengths
+        self.res = 0.0
+
+        self.details = pd.DataFrame({"cost": []})
+        self.details.index.name = "doc_num"
+
+        self.topics = topics
+        self.params = params
+        
+    def update(self, doc_num, data, doc_ptdw, phi_val, phi_rows):
+
+        local_res = self.measure(self.params, self.topics, doc_num, data, doc_ptdw, phi_val, phi_rows)
+        s = pd.Series({"cost": local_res})
+        
+        self.details.loc[doc_num] = s
+        self.res += local_res
+
+    def output_details(self, filename):
+        self.details.to_csv(filename, sep=";", encoding='utf-8')
+        
+    def output(self):
+        return self.res
+    
+    def measure(self, params, topics, doc_num, data, doc_ptdw, phi_val, phi_rows):
+
+        threshold = params["focon_threshold"]
+        res = 0.0
+
+        known_words = phi_rows
+
         cur_threshold = 0
-        
-        for j in range(i+1, len(data)):
-            word = data[j]
+        backgrnd = -1
+        '''
+        for j, word in enumerate(data):
+            # looking for the first appropriate word
+            if (data[j] not in known_words or np.argmax(doc_ptdw[j]) == backgrnd):
+                continue
+            vec1 = doc_ptdw[j]
             
             if (word not in known_words):
                 cur_threshold = 0
@@ -233,5 +298,6 @@ def coh_focon(params, topics, files, files_path,
             res += np.sum(abs(vec1[argsmax] - vec2[argsmax]))
             
             vec1 = vec2
-    
-    return -1 * res
+        return -res
+        '''
+        return 0
