@@ -22,14 +22,10 @@ import scipy as sp
 debug = False
 is_full = True
 
-pn_folder = r''
+pn_folder = r'C:\Development\Github\intratext_fixes'
 vw_folder = 'pn_mixed_lemmatized' + ("_full" if is_full else "")
 
 domain_folder = 'PNaukaMixedLemmatized' + ('_full' if is_full else '_short')
-
-domain_path = os.path.join(pn_folder, domain_folder)
-files_total = os.listdir(domain_path)
-#files_total = sorted(files_total, key=my_sort_func)
 
 
 

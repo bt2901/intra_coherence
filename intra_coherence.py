@@ -30,7 +30,7 @@ class coh_toplen_calculator(object):
         self.topics = topics
         self.params = params
         
-        model = {"lenghts_topic_{}".format(t): [] for t, n in enumerate(topics)}
+        model = {"lengths_topic_{}".format(t): [] for t, n in enumerate(topics)}
         model["doc_len"] = []
         self.details = pd.DataFrame(model)
         self.details.index.name = "doc_num"
@@ -45,6 +45,7 @@ class coh_toplen_calculator(object):
         self.details.loc[doc_num] = s 
         
         for i, topic_name in enumerate(self.top_lens):
+            #self.details.loc[doc_num, i] = local_top_lens[i]
             self.top_lens[i] += local_top_lens[i]
             
     def output_details(self, filename):
@@ -91,8 +92,7 @@ class coh_toplen_calculator(object):
 
         time_while = 0
             
-        for l in range(3):
-        #for l in range(len(topics)):
+        for l in range(len(topics)):
             if (len(pos_list[l]) == 0):
                 continue
                 
@@ -183,7 +183,11 @@ def coh_semantic_inner_alt(params, topics, doc_num, data, doc_ptdw,
     n_pairs_examined = len(data) - window + 1
     for i in range(n_pairs_examined):
         cur_window = doc_ptdw[i:i+window, :]
-        total_cost += np.var(cur_window) 
+        #print(total_cost) 
+        #print(total_cost.shape) 
+        #print (np.var(cur_window, axis=0)) 
+        #print (np.var(cur_window, axis=0).shape) 
+        total_cost += np.var(cur_window, axis=0) 
             
     return total_cost, n_pairs_examined
 

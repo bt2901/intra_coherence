@@ -11,7 +11,7 @@ from collections import defaultdict
 
 import pandas as pd
 
-from document_helper import files_total, debug
+from document_helper import debug
 from document_helper import calc_doc_ptdw, read_plaintext
 from segmentation import segmentation_evaluation, output_detailed_cost
 
@@ -91,10 +91,14 @@ class ResultStorage(object):
         
         # last_row = df.index[:-1]
         # corr_df = self.measures.corr("spearman").loc[(('segm', "soft"), ('segm', "harsh")), last_row]
+        print("corred")
+        self.measures.corr("spearman").to_csv("corred.csv")
         # TODO FIXME DEPRECATED
         corr_df = self.measures.corr("spearman").ix[(('segm', "soft"), ('segm', "harsh")), :-1]
-        self.measures.to_csv(os.path.join('results', 'measures.csv'), sep=";", encoding='utf-8')
-        corr_df.to_csv(os.path.join('results', 'corr.csv'), sep=";", encoding='utf-8')
+        print(self.measures.head())
+        self.measures.to_csv(r"C:\Development\Github\intratext_fixes\results\m.csv", sep=";", encoding='utf-8')
+        print(corr_df.head())
+        corr_df.to_csv(r"C:\Development\Github\intratext_fixes\results\corr.csv", sep=";", encoding='utf-8')
         
     
 
@@ -105,14 +109,19 @@ functions_data["toplen"]["calc"] = coh_toplen_calculator
 functions_data["semantic"]["calc"] = coh_semantic_calculator
 
 class record_results(object):
-    def __init__(self, model, vw_file, at, save_in):
+    def __init__(self, model, vw_file, at, save_in, theta=None):
         self.save_in = save_in
         self.vw_file = vw_file
         self.at = at
         self.model = model
+        if theta is not None:
+            self.theta = theta
     def __enter__(self):
         self.phi = self.model.get_phi()
-        self.theta = self.model.get_theta()
+        if self.theta is None:
+            self.theta = self.model.get_theta()
+            #self.theta = self.model.get_phi(model_name="ptd")
+        
         self._coherences_tmp = self._create_coherences_carcass(self.save_in.coh_names)
         self._segm_quality_tmp = self._create_segm_quality_carcass()
         self.theta_cols=list(self.theta.columns)
@@ -138,7 +147,7 @@ class record_results(object):
 
         with codecs.open(self.vw_file, "r", encoding="utf8") as f:
             if (coh_name in coh_names_top_tokens):
-                should_skip = debug or len(self.model.score_tracker['TopTokensScore'].last_tokens) == 0
+                should_skip = debug or 'TopTokensScore' not in self.model.score_tracker or len(self.model.score_tracker['TopTokensScore'].last_tokens) == 0
                 if should_skip:
                     if not debug:
                         print("WARNING: top tokens is empty")

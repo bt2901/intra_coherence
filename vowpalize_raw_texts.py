@@ -65,7 +65,7 @@ def vowpalize(dir_name):
     for doc in glob.glob(mask):
         with codecs.open(doc, "r", encoding="utf8") as f:
             content = f.read()
-            doc_id = doc.strip().split("\\")[1]
+            doc_id = doc.strip().split("\\")[-1]
             doc_id = doc_id.split(".")[0]
             vowpal_desc, raw_tokens = gen_vowpal(content)
             original_labels = get_orig_labels(vowpal_desc.split(" "), raw_tokens)
@@ -77,5 +77,5 @@ def vowpalize(dir_name):
             with codecs.open("vw_{}.txt".format("labels"), "a", encoding="utf8") as out:
                 out.write( u"{} |labels {} \n".format(doc_id, original_labels) )
 
-vowpalize("PNaukaMixedLemmatized_full")
+vowpalize(r"C:\Development\Github\intratext_fixes\sgm200\PNauka\PNaukaMixedLemmatized")
 #vowpalize("PNaukaMixedLemmatized_short")
