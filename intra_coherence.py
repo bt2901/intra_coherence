@@ -267,24 +267,43 @@ class coh_focon_calculator(object):
 
         cur_threshold = 0
         backgrnd = -1
+
+        # TODO: improve performance
+
+        '''
+        import pickle as pkl
+        with open("data.pkl", "wb") as f:
+            pkl.dump(data, f)
+        with open("doc_ptdw.pkl", "wb") as f:
+            pkl.dump(doc_ptdw, f)
+        raise NameError
         '''
         for j, word in enumerate(data):
             # looking for the first appropriate word
             if (data[j] not in known_words or np.argmax(doc_ptdw[j]) == backgrnd):
+                print(data[j])
+                print (data[j] in known_words)
+                print (unicode(data[j]) in known_words)
+                
+                print (np.argmax(doc_ptdw[j]))
+                raise NameError
                 continue
             vec1 = doc_ptdw[j]
             
             if (word not in known_words):
                 cur_threshold = 0
                 vec1 = None
+                raise NameError
                 continue
             
             if (vec1 is None and np.argmax(doc_ptdw[j]) == backgrnd):
                 cur_threshold = 0
+                raise NameError
                 continue
             elif (vec1 is None and np.argmax(doc_ptdw[j]) != backgrnd):
                 vec1 = doc_ptdw[j]
                 cur_threshold = 0
+                raise NameError
                 continue
             elif (vec1 is not None and np.argmax(doc_ptdw[j]) == backgrnd):
                 cur_threshold += 1
@@ -294,6 +313,7 @@ class coh_focon_calculator(object):
                     cur_threshold = 0
                     vec1 = None
                     continue     
+                raise NameError
             # if everything's all right:
 
             vec2 = doc_ptdw[j]
@@ -302,6 +322,7 @@ class coh_focon_calculator(object):
             res += np.sum(abs(vec1[argsmax] - vec2[argsmax]))
             
             vec1 = vec2
-        return -res
-        '''
+        raise NameError
+        #return -res
+
         return 0

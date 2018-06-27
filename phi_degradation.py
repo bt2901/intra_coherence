@@ -80,9 +80,10 @@ if __name__ == "__main__":
     pn_folder = r'C:\Development\Github\news_analysis\plaintext200'
 
     dm = "plain_text"
-    coh_names = ['newman', 'mimno', 'semantic', 'toplen', "focon"]
     coh_names = ['toplen']
     coh_names = ['semantic']
+    coh_names = ['newman', 'mimno', 'semantic', 'toplen', "focon"]
+    coh_names = ['newman', 'mimno', "focon"]
     intra_coherence_params = {
         "window": 10, "threshold": 0.02, "focon_threshold": 5, "cosine_num_top_tokens": 10, "num_top_tokens": 10,
         "general_penalty": 0.005
@@ -92,6 +93,7 @@ if __name__ == "__main__":
     batch_vectorizer = artm.BatchVectorizer(data_path=pn_folder, data_format='batches')
 
     good_model = artm.load_artm_model(r'C:\Development\Github\news_analysis\plaintext200\good_default_model_20_t\dump')
+    print(good_model.regularizers.data)
     good_model.regularizers.data.clear()
     #good_model, _, _ = load_saved_model(batch_vectorizer)
 
@@ -102,22 +104,23 @@ if __name__ == "__main__":
         s = artm.TopTokensScore(name=name, num_tokens=10, class_id=dm, dictionary=dictionary, topic_names=[topic_id])
         good_model.scores.add(s)
                     
-    step = 0.05
+    step = 0.7
     results = pd.DataFrame(columns=good_model.topic_names,
                            index=np.arange(0, 1.01, step))
 
     data_storage = ResultStorage(coh_names, domain_path=None)
+    restart = 0
     for alpha in tqdm.tqdm(np.arange(0, 1.01, step)):
         model = good_model.clone()
         model, _, _ = damage_model(model, range(20), alpha=alpha, seed=1)
         theta = refresh_model(model, batch_vectorizer)
-        model_id = " alpha_{} ".format(alpha)
+        model_id = "restart_{}_alpha_{} ".format(restart, alpha)
         with record_results(model=model, vw_file=vw_file, at=model_id, save_in=data_storage, theta=theta) as recorder:
             for coh_name in coh_names:
                 print coh_name
                 recorder.evaluate(coh_name, intra_coherence_params)
                     
-            #recorder.evaluate_segmentation_quality()
+            recorder.evaluate_segmentation_quality()
         write_topics_coherence(model, alpha, results)
             
     data_storage.data_results_save()

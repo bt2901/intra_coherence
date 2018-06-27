@@ -138,6 +138,7 @@ def segmentation_evaluation(topics, f,
     
     
     
+# TODO: improve performance
 def output_detailed_cost(topics, f,
                        phi_val, phi_cols, phi_rows,
                        theta_val, theta_cols, theta_rows,
@@ -171,9 +172,11 @@ def output_detailed_cost(topics, f,
                 tmp[column] = row
             return local_res, tmp
         local_res_s, tmp = prepare('soft')
+        # TODO: performance bottleneck
         for i, column in enumerate(original_topic_labels):
             local_res_s[column] += doc_ptdw[i, tmp[column]]
         local_res_s["doc_len"] = len(data)
+        # TODO: performance bottleneck
         details['soft'].loc[doc_num] = local_res_s
 
 
@@ -182,9 +185,11 @@ def output_detailed_cost(topics, f,
         np.add.at(hits_num, [argmax_indices, original_topic_labels], 1)
 
         local_res_h = pd.Series({t: 0 for t, n in enumerate(topics)})
+        # TODO: performance bottleneck
         for row, column in indexes["harsh"]:
             local_res_h[column] = hits_num[row, column]
         local_res_h["doc_len"] = len(data)
+        # TODO: performance bottleneck
         details['harsh'].loc[doc_num] = local_res_h
 
     for m in ("soft", "harsh"):

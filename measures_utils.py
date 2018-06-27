@@ -86,19 +86,10 @@ class ResultStorage(object):
             print(pars_coh.keys())
             raise ValueError('Different lengths of x- and y- arrays ({} and {})'.format(len(pars_segm), len(pars_coh)))
 
-        coh_names = ['newman', 'mimno', 'semantic', 'toplen']
-        corrs = {prs: 'prs', spr: 'spr'}
-        
-        # last_row = df.index[:-1]
-        # corr_df = self.measures.corr("spearman").loc[(('segm', "soft"), ('segm', "harsh")), last_row]
-        print("corred")
-        self.measures.corr("spearman").to_csv("corred.csv")
-        # TODO FIXME DEPRECATED
-        corr_df = self.measures.corr("spearman").ix[(('segm', "soft"), ('segm', "harsh")), :-1]
-        print(self.measures.head())
-        self.measures.to_csv(r"C:\Development\Github\intratext_fixes\results\m.csv", sep=";", encoding='utf-8')
-        print(corr_df.head())
-        corr_df.to_csv(r"C:\Development\Github\intratext_fixes\results\corr.csv", sep=";", encoding='utf-8')
+        self.measures.to_pickle("measures.pkl")
+        # check correlation between ground truth and everyting else
+        corr_df = self.measures.corr("spearman").loc[[('segm', 'soft'), ('segm', 'harsh')]]
+        corr_df.to_csv(r"corr.csv", sep=";", encoding='utf-8')
         
     
 
@@ -147,9 +138,12 @@ class record_results(object):
 
         with codecs.open(self.vw_file, "r", encoding="utf8") as f:
             if (coh_name in coh_names_top_tokens):
-                should_skip = debug or 'TopTokensScore' not in self.model.score_tracker or len(self.model.score_tracker['TopTokensScore'].last_tokens) == 0
+                score_name = 'TopTokensScore' if 'TopTokensScore' in self.model.score_tracker else 'TopTokens(plain_text)Score'
+                is_empty = score_name not in self.model.score_tracker or len(self.model.score_tracker[score_name].tokens) == 0 or len(self.model.score_tracker[score_name].last_tokens) == 0
+                should_skip = debug or is_empty
                 if should_skip:
                     if not debug:
+                        print(self.model.score_tracker)
                         print("WARNING: top tokens is empty")
                     else:
                         print("skipped...")
@@ -224,7 +218,7 @@ class record_results(object):
             print (coh_list2)
             raise NotImplementedError
                         
-    def evaluate_segmentation_quality(self):
+    def evaluate_segmentation_quality(self, calc_details=False):
         with codecs.open(self.vw_file, "r", encoding="utf8") as f:
             cur_segm_eval, indexes = (
                 segmentation_evaluation(
@@ -240,17 +234,18 @@ class record_results(object):
             self._segm_quality_tmp['harsh'] = np.append(
                 self._segm_quality_tmp['harsh'], cur_segm_eval['harsh']
             )
-        with codecs.open(self.vw_file, "r", encoding="utf8") as f:
-            filename = "details_of_segm_{}_{}".format("segm", self.at)
-            filename = ''.join(char for char in filename 
-                if char in "_.0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
-            filename = (os.path.join('results', filename + "_{}.csv"))
-            output_detailed_cost(
-                topics=self.model.topic_names, f=f,
-                phi_val=self.phi.values, phi_cols=self.phi_cols, phi_rows=self.phi_rows,
-                theta_val=self.theta.values, theta_cols=self.theta_cols, theta_rows=self.theta_rows,
-                indexes=indexes, filename=filename
-            )
+        if calc_details:
+            with codecs.open(self.vw_file, "r", encoding="utf8") as f:
+                filename = "details_of_segm_{}_{}".format("segm", self.at)
+                filename = ''.join(char for char in filename 
+                    if char in "_.0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+                filename = (os.path.join('results', filename + "_{}.csv"))
+                output_detailed_cost(
+                    topics=self.model.topic_names, f=f,
+                    phi_val=self.phi.values, phi_cols=self.phi_cols, phi_rows=self.phi_rows,
+                    theta_val=self.theta.values, theta_cols=self.theta_cols, theta_rows=self.theta_rows,
+                    indexes=indexes, filename=filename
+                )
             
     def _create_segm_quality_carcass(self):
         segm_quality_carcass = {mode: np.array([]) for mode in ["soft", "harsh"]}

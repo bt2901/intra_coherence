@@ -222,7 +222,8 @@ def coh_mimno(window, num_top_tokens, model, topics, file):
     means = [0 for i in range(len(topics))] # part of result
     medians = [0 for i in range(len(topics))] # part of result
     
-    topic_words = [model.score_tracker['TopTokensScore'].last_tokens[topic] for topic in topics]
+    score_name = 'TopTokensScore' if 'TopTokensScore' in self.model.score_tracker else 'TopTokens(plain_text)Score'
+    topic_words = [model.score_tracker[score_name].last_tokens[topic] for topic in topics]
     assert (num_top_tokens <= len(topic_words[0])),"Ask more top-tokens than available"
     topic_words = [topic_words[i][:num_top_tokens] for i in range(len(topics))]
     
@@ -271,7 +272,8 @@ def angle_cosine(wi, wj):
 
     
 def coh_cosine(num_top_tokens, model, topics, phi_val, phi_rows):  
-    topic_words = [model.score_tracker['TopTokensScore'].last_tokens[topic] for topic in topics]
+    score_name = 'TopTokensScore' if 'TopTokensScore' in self.model.score_tracker else 'TopTokens(plain_text)Score'
+    topic_words = [model.score_tracker[score_name].last_tokens[topic] for topic in topics]
     assert (num_top_tokens <= len(topic_words[0])),"Ask more top-tokens than available"
     topic_words = [topic_words[i][:num_top_tokens] for i in range(len(topics))]
     
@@ -303,7 +305,8 @@ def coh_newman(window, num_top_tokens, model, topics, file):
     means = [0 for i in range(len(topics))] # part of future result
     medians = [0 for i in range(len(topics))] # part of future result
     
-    topic_words = [model.score_tracker['TopTokensScore'].last_tokens[topic] for topic in topics]
+    score_name = 'TopTokensScore' if 'TopTokensScore' in self.model.score_tracker else 'TopTokens(plain_text)Score'
+    topic_words = [model.score_tracker[score_name].last_tokens[topic] for topic in topics]
     assert (num_top_tokens <= len(topic_words[0])),"Ask more top-tokens than available"
     topic_words = [topic_words[i][:num_top_tokens] for i in range(len(topics))]
     
